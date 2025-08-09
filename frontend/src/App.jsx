@@ -1,11 +1,10 @@
 
 import React, { useCallback, useState } from 'react'
 import { useConversation } from '@elevenlabs/react'   // 👈 solo el hook
-import PoseCoach from './PoseCoach.jsx'
-import HeartRatePanel from './HeartRatePanel.jsx'
 import Diary from './Diary.jsx'
 import Suggestions from './Suggestions.jsx'
 import BottomNavbar from './components/BottomNavbar.jsx'
+import ChatInterface from './components/ChatInterface.jsx'
 import { getWebRTCToken } from './api.js'
 
 function PhoneShell({ children, bottomNavbar }) {
@@ -76,12 +75,8 @@ function CoachView() {
 
       <div className="flex-1 mt-3 overflow-y-auto pb-16">
         {tab === 'coach' && (
-          <div className="space-y-3">
-            <PoseCoach speak={speak} />
-            <HeartRatePanel onHr={(val) => {
-              if (convo?.sendUserMessage) convo.sendUserMessage(`Heart rate update: ${val} bpm`)
-            }} />
-            <div className="text-xs opacity-70">Status: {connected ? 'Connected to ElevenLabs Agent' : 'Disconnected'}</div>
+          <div className="flex flex-col h-full">
+            <ChatInterface connected={connected} speak={speak} />
           </div>
         )}
 

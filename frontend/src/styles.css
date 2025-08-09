@@ -101,3 +101,88 @@ body { @apply bg-neutral-100 text-neutral-900; font-family: ui-sans-serif, syste
   text-transform: uppercase;
   line-height: 1;
 }
+
+/* Green Aura Animation */
+.green-aura-container {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.green-aura-core {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border-radius: 50%;
+  box-shadow: 
+    0 0 20px rgba(34, 197, 94, 0.6),
+    inset 0 0 20px rgba(34, 197, 94, 0.3);
+  animation: aura-pulse 2s ease-in-out infinite;
+}
+
+.green-aura-pulse {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  border-radius: 50%;
+  animation: aura-expand 3s ease-in-out infinite;
+}
+
+.green-aura-wave {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 50%;
+  animation: aura-wave 4s ease-in-out infinite reverse;
+}
+
+@keyframes aura-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      0 0 20px rgba(34, 197, 94, 0.6),
+      inset 0 0 20px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 
+      0 0 30px rgba(34, 197, 94, 0.8),
+      inset 0 0 30px rgba(34, 197, 94, 0.5);
+  }
+}
+
+@keyframes aura-expand {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.2);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+@keyframes aura-wave {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
