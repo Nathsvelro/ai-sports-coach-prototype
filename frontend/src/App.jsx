@@ -1,6 +1,6 @@
 
 import React, { useCallback, useState } from 'react'
-import { ElevenLabsProvider, useConversation } from '@elevenlabs/react'
+import { useConversation } from '@elevenlabs/react'   // 👈 solo el hook
 import PoseCoach from './PoseCoach.jsx'
 import HeartRatePanel from './HeartRatePanel.jsx'
 import Diary from './Diary.jsx'
@@ -19,13 +19,14 @@ function PhoneShell({ children }) {
 }
 
 function CoachView() {
-  const convo = useConversation()
+  const convo = useConversation()     // 👈 hook React (web)
   const [connected, setConnected] = useState(false)
   const [tab, setTab] = useState('coach')
 
   const connect = useCallback(async () => {
+    // Pide token WebRTC al backend (mantiene tu API key secreta)
     const token = await getWebRTCToken()
-    await convo.startConversation({
+    await convo.startSession({           // 👈 startSession (no startConversation)
       conversationToken: token,
       connectionType: 'webrtc',
       onConnect: () => setConnected(true),
@@ -35,11 +36,12 @@ function CoachView() {
   }, [convo])
 
   const disconnect = useCallback(async () => {
-    await convo.endConversation?.()
+    await convo.endSession?.()          // 👈 endSession (no endConversation)
     setConnected(false)
   }, [convo])
 
   const speak = useCallback((text) => {
+    // Envía un mensaje de usuario al agente para que responda por voz
     convo.sendUserMessage?.(text)
   }, [convo])
 
@@ -79,11 +81,6 @@ function CoachView() {
 }
 
 export default function App() {
-  return (
-    <ElevenLabsProvider>
-      <PhoneShell>
-        <CoachView />
-      </PhoneShell>
-    </ElevenLabsProvider>
-  )
+  // En React web NO se usa <ElevenLabsProvider> (solo RN lo tiene)
+  return <PhoneShell><CoachView /></PhoneShell>
 }
