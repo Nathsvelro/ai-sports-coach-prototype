@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { addGoal, listGoals, addMilestone, addEntry, listEntries } from './api'
+import { Input, Textarea, Select, FormField } from './components/Input'
 
 export default function Diary() {
   const [goals, setGoals] = useState([])
@@ -19,31 +20,65 @@ export default function Diary() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onAddGoal} className="space-y-2">
-        <div className="font-semibold">Add Goal</div>
-        <div className="flex gap-2">
-          <input className="flex-1 border rounded px-3 py-2" placeholder="Run 10K under 50 min" value={title} onChange={e => setTitle(e.target.value)} />
-          <button className="px-3 py-2 rounded bg-neutral-900 text-white">Save</button>
-        </div>
+      <form onSubmit={onAddGoal} className="space-y-3">
+        <FormField label="Add Goal">
+          <div className="flex gap-2">
+            <Input 
+              className="flex-1" 
+              placeholder="Run 10K under 50 min" 
+              value={title} 
+              onChange={e => setTitle(e.target.value)} 
+            />
+            <button className="px-4 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 transition-colors">
+              Save
+            </button>
+          </div>
+        </FormField>
       </form>
 
-      <form onSubmit={onAddEntry} className="space-y-2">
-        <div className="font-semibold">Diary Entry</div>
-        <textarea className="w-full border rounded px-3 py-2" rows={3} placeholder="Felt strong in intervals today…" value={note} onChange={e => setNote(e.target.value)} />
-        <div className="grid grid-cols-3 gap-2">
-          <label className="text-sm">Mood
-            <select className="block w-full border rounded px-2 py-1" value={mood} onChange={e => setMood(e.target.value)}>
-              <option>🙂</option><option>😐</option><option>😓</option><option>🔥</option>
-            </select>
-          </label>
-          <label className="text-sm">Fatigue (1–10)
-            <input type="number" min="1" max="10" className="block w-full border rounded px-2 py-1" value={fatigue} onChange={e => setFatigue(e.target.value)} />
-          </label>
-          <label className="text-sm">Sleep (h)
-            <input type="number" step="0.5" className="block w-full border rounded px-2 py-1" value={sleep} onChange={e => setSleep(e.target.value)} />
-          </label>
+      <form onSubmit={onAddEntry} className="space-y-3">
+        <FormField label="Diary Entry">
+          <Textarea 
+            rows={3} 
+            placeholder="Felt strong in intervals today…" 
+            value={note} 
+            onChange={e => setNote(e.target.value)} 
+          />
+        </FormField>
+        
+        <div className="grid grid-cols-3 gap-3">
+          <FormField label="Mood">
+            <Select value={mood} onChange={e => setMood(e.target.value)}>
+              <option>🙂</option>
+              <option>😐</option>
+              <option>😓</option>
+              <option>🔥</option>
+            </Select>
+          </FormField>
+          
+          <FormField label="Fatigue (1–10)">
+            <Input 
+              type="number" 
+              min="1" 
+              max="10" 
+              value={fatigue} 
+              onChange={e => setFatigue(e.target.value)} 
+            />
+          </FormField>
+          
+          <FormField label="Sleep (h)">
+            <Input 
+              type="number" 
+              step="0.5" 
+              value={sleep} 
+              onChange={e => setSleep(e.target.value)} 
+            />
+          </FormField>
         </div>
-        <button className="px-3 py-2 rounded bg-neutral-900 text-white">Log Entry</button>
+        
+        <button className="px-4 py-2 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 transition-colors">
+          Log Entry
+        </button>
       </form>
 
       <div className="space-y-1">

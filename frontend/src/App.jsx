@@ -51,9 +51,13 @@ function CoachView() {
         <div className="text-xl font-bold">AI Sports Coach</div>
         <div className="flex gap-2">
           {!connected ? (
-            <button onClick={connect} className="px-3 py-2 rounded bg-green-600 text-white">Connect Coach</button>
+            <button onClick={connect} className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors">
+              Connect Coach
+            </button>
           ) : (
-            <button onClick={disconnect} className="px-3 py-2 rounded bg-red-600 text-white">Disconnect</button>
+            <button onClick={disconnect} className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors">
+              Disconnect
+            </button>
           )}
         </div>
       </div>

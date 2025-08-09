@@ -3,7 +3,18 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light dark; }
+:root { 
+  color-scheme: light dark;
+  
+  /* Spartan UI-inspired design tokens */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --border: 240 5.9% 90%;
+  --ring: 240 10% 3.9%;
+  --radius: 0.5rem;
+}
 body { @apply bg-neutral-100 text-neutral-900; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; }
 
 .phone-frame { width: 380px; max-width: 92vw; height: 780px; max-height: 92vh; border-radius: 36px; border: 12px solid #111827; background: white; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.25); overflow: hidden; }
