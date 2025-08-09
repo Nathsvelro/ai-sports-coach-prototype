@@ -102,10 +102,11 @@ export default function PoseCoach({ speak }) {
 
   return (
     <div className="space-y-2">
-      <div className="text-sm opacity-70">{ready ? "Camera on. Do a squat to get cues." : "Initializing camera & model…"}</div>
-      <div className="rounded-xl overflow-hidden border bg-black">
-        <canvas ref={canvasRef} className="w-full h-auto" />
+      <div className="text-xs opacity-70">{ready ? "Camera on. Do a squat to get cues." : "Initializing camera & model…"}</div>
+      <div className="rounded-lg overflow-hidden border bg-black">
+        <canvas ref={canvasRef} className="w-full h-auto max-h-48" />
       </div>
+      <video ref={videoRef} className="hidden" />
     </div>
   )
 }

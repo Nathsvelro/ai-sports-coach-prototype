@@ -5,14 +5,18 @@ import PoseCoach from './PoseCoach.jsx'
 import HeartRatePanel from './HeartRatePanel.jsx'
 import Diary from './Diary.jsx'
 import Suggestions from './Suggestions.jsx'
+import BottomNavbar from './components/BottomNavbar.jsx'
 import { getWebRTCToken } from './api.js'
 
-function PhoneShell({ children }) {
+function PhoneShell({ children, bottomNavbar }) {
   return (
     <div className="w-full min-h-screen grid place-items-center p-4">
       <div className="phone-frame bg-white">
         <div className="phone-notch"></div>
-        <div className="h-full overflow-auto p-4 pb-24 bg-white">{children}</div>
+        <div className="phone-content bg-white">
+          {children}
+        </div>
+        {bottomNavbar}
       </div>
     </div>
   )
@@ -46,45 +50,106 @@ function CoachView() {
   }, [convo])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="text-xl font-bold">AI Sports Coach</div>
-        <div className="flex gap-2">
-          {!connected ? (
-            <button onClick={connect} className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors">
-              Connect Coach
-            </button>
-          ) : (
-            <button onClick={disconnect} className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors">
-              Disconnect
-            </button>
-          )}
+    <div className="flex flex-col h-full">
+      <div className="flex-shrink-0 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-lg font-bold">AI Sports Coach</div>
+          <div className="flex gap-1">
+            {!connected ? (
+              <button onClick={connect} className="px-3 py-1.5 text-xs rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors">
+                Connect
+              </button>
+            ) : (
+              <button onClick={disconnect} className="px-3 py-1.5 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors">
+                Disconnect
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-1">
+          <button onClick={() => setTab('coach')} className={`tab text-xs ${tab==='coach'?'tab-active':''}`}>Coach</button>
+          <button onClick={() => setTab('diary')} className={`tab text-xs ${tab==='diary'?'tab-active':''}`}>Diary</button>
+          <button onClick={() => setTab('suggest')} className={`tab text-xs ${tab==='suggest'?'tab-active':''}`}>Plan</button>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <button onClick={() => setTab('coach')} className={`tab ${tab==='coach'?'tab-active':''}`}>Pose Coach</button>
-        <button onClick={() => setTab('diary')} className={`tab ${tab==='diary'?'tab-active':''}`}>Diary</button>
-        <button onClick={() => setTab('suggest')} className={`tab ${tab==='suggest'?'tab-active':''}`}>Plan</button>
+      <div className="flex-1 mt-3 overflow-y-auto pb-16">
+        {tab === 'coach' && (
+          <div className="space-y-3">
+            <PoseCoach speak={speak} />
+            <HeartRatePanel onHr={(val) => {
+              if (convo?.sendUserMessage) convo.sendUserMessage(`Heart rate update: ${val} bpm`)
+            }} />
+            <div className="text-xs opacity-70">Status: {connected ? 'Connected to ElevenLabs Agent' : 'Disconnected'}</div>
+          </div>
+        )}
+
+        {tab === 'diary' && <Diary />}
+        {tab === 'suggest' && <Suggestions />}
       </div>
-
-      {tab === 'coach' && (
-        <div className="space-y-3">
-          <PoseCoach speak={speak} />
-          <HeartRatePanel onHr={(val) => {
-            if (convo?.sendUserMessage) convo.sendUserMessage(`Heart rate update: ${val} bpm`)
-          }} />
-          <div className="text-sm opacity-70">Status: {connected ? 'Connected to ElevenLabs Agent' : 'Disconnected'}</div>
-        </div>
-      )}
-
-      {tab === 'diary' && <Diary />}
-      {tab === 'suggest' && <Suggestions />}
     </div>
   )
 }
 
 export default function App() {
   // En React web NO se usa <ElevenLabsProvider> (solo RN lo tiene)
-  return <PhoneShell><CoachView /></PhoneShell>
+  return (
+    <PhoneShell 
+      bottomNavbar={
+        <CoachViewNavbar />
+      }
+    >
+      <CoachView />
+    </PhoneShell>
+  )
+}
+
+function CoachViewNavbar() {
+  const convo = useConversation()
+  const [connected, setConnected] = useState(false)
+  const [navTab, setNavTab] = useState('chat')
+
+  const connect = useCallback(async () => {
+    const token = await getWebRTCToken()
+    await convo.startSession({
+      conversationToken: token,
+      connectionType: 'webrtc',
+      onConnect: () => setConnected(true),
+      onDisconnect: () => setConnected(false),
+      onError: (e) => console.error('ElevenLabs error', e),
+    })
+  }, [convo])
+
+  const speak = useCallback((text) => {
+    convo.sendUserMessage?.(text)
+  }, [convo])
+
+  const handleChat = useCallback(() => {
+    setNavTab('chat')
+    console.log('Chat activated')
+  }, [])
+
+  const handleMicrophone = useCallback(() => {
+    setNavTab('microphone')
+    if (connected) {
+      console.log('Microphone activated')
+    } else {
+      connect()
+    }
+  }, [connected, connect])
+
+  const handleAnalyze = useCallback(() => {
+    setNavTab('analyze')
+    speak('Por favor, muéstrame tu ejercicio para analizarlo')
+  }, [speak])
+
+  return (
+    <BottomNavbar
+      onChat={handleChat}
+      onMicrophone={handleMicrophone}
+      onAnalyze={handleAnalyze}
+      activeTab={navTab}
+    />
+  )
 }

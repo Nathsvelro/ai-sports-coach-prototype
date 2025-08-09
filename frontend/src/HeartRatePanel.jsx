@@ -24,13 +24,13 @@ export default function HeartRatePanel({ onHr }) {
     } finally { setConnecting(false) }
   }
   return (
-    <div className="p-3 rounded-xl bg-neutral-50 border">
-      <div className="font-semibold mb-1">Heart Rate</div>
-      <div className="text-2xl">{hr ? `${hr} bpm` : '—'}</div>
-      <button onClick={connect} className="mt-2 px-3 py-1 rounded bg-neutral-900 text-white disabled:opacity-50" disabled={connecting}>
+    <div className="p-3 rounded-lg bg-neutral-50 border">
+      <div className="font-semibold mb-1 text-sm">Heart Rate</div>
+      <div className="text-xl mb-2">{hr ? `${hr} bpm` : '—'}</div>
+      <button onClick={connect} className="px-3 py-1 text-xs rounded bg-neutral-900 text-white disabled:opacity-50" disabled={connecting}>
         {connecting ? 'Connecting…' : 'Connect BLE'}
       </button>
-      {error && <div className="text-sm text-red-600 mt-1">{error}</div>}
+      {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
     </div>
   )
 }

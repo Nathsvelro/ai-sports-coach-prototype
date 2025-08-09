@@ -82,18 +82,18 @@ export default function Diary() {
       </form>
 
       <div className="space-y-1">
-        <div className="font-semibold">Goals</div>
-        <ul className="space-y-1 text-sm">
-          {goals.map(g => <li key={g.id} className="border rounded px-3 py-2">{g.title}</li>)}
+        <div className="font-semibold text-sm">Goals</div>
+        <ul className="space-y-1 text-xs">
+          {goals.map(g => <li key={g.id} className="border rounded px-2 py-2 text-xs">{g.title}</li>)}
         </ul>
       </div>
 
       <div className="space-y-1">
-        <div className="font-semibold">Entries</div>
-        <ul className="space-y-1 text-sm max-h-48 overflow-auto pr-1">
-          {entries.map(en => <li key={en.id} className="border rounded px-3 py-2">
+        <div className="font-semibold text-sm">Entries</div>
+        <ul className="space-y-1 text-xs max-h-32 overflow-auto pr-1">
+          {entries.map(en => <li key={en.id} className="border rounded px-2 py-2">
             <div className="text-xs opacity-60">#{en.id}</div>
-            <div>{en.note}</div>
+            <div className="text-xs">{en.note}</div>
             <div className="text-xs opacity-70 mt-1">Mood {en.mood} · Fatigue {en.fatigue ?? '—'} · Sleep {en.sleep_hours ?? '—'}h</div>
           </li>)}
         </ul>

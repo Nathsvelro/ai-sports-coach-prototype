@@ -52,9 +52,9 @@ export default function Suggestions() {
         {loading ? 'Thinking…' : 'Suggest Plan'}
       </button>
       
-      {error && <div className="text-sm text-red-600 p-3 bg-red-50 rounded-md border border-red-200">{error}</div>}
+      {error && <div className="text-xs text-red-600 p-2 bg-red-50 rounded-md border border-red-200">{error}</div>}
       {recommendations && (
-        <pre className="whitespace-pre-wrap text-sm border rounded-md p-3 bg-muted">{recommendations}</pre>
+        <pre className="whitespace-pre-wrap text-xs border rounded-md p-3 bg-muted max-h-40 overflow-y-auto">{recommendations}</pre>
       )}
     </div>
   )
