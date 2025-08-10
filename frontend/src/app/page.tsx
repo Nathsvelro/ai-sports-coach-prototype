@@ -305,15 +305,7 @@ function BottomTalkBar({
 
 export default function Page() {
   const [stage, setStage] = useState<Stage>("init")
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "sys-1",
-      role: "system",
-      kind: "notice",
-      content:
-        "Antes de empezar, autoriza la conexión a tu wearable para analizar tus métricas y personalizar tu plan.",
-    },
-  ])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
 
   // ElevenLabs WebRTC state
   const convo = useConversation()
@@ -610,25 +602,7 @@ export default function Page() {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="mx-auto max-w-sm px-4 space-y-3 pb-48">
-          {/* Initial wearable connect callout */}
-          {stage === "init" && (
-            <ChatBubble role="system">
-              <div className="text-sm">
-                {
-                  "Antes de empezar, autoriza la conexión a tu wearable para analizar tus métricas y personalizar tu plan."
-                }
-                <div className="mt-2">
-                  <Button
-                    size="sm"
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                    onClick={connectWearable}
-                  >
-                    {"Conectar wearable"}
-                  </Button>
-                </div>
-              </div>
-            </ChatBubble>
-          )}
+
 
           {stage === "awaitingPermission" && <ChatBubble role="system">{"Solicitando permiso…"}</ChatBubble>}
 
