@@ -15,7 +15,7 @@ import { useConversation } from '@elevenlabs/react'
 import { getWebRTCToken } from '@/lib/api'
 
 type Role = "agent" | "user" | "system"
-type MessageKind = "text" | "plan" | "notice"
+type MessageKind = "text" | "questions" | "plan" | "notice"
 
 type Exercise = {
   name: string
@@ -40,51 +40,51 @@ type ChatMessage = {
   content: string | Plan
 }
 
-type Stage = "init" | "planDelivered"
+type Stage = "init" | "awaitingPermission" | "connectedAnalyzing" | "awaitingAnswers" | "planDelivered"
 
 /**
  * Animated green aura (visual only)
  */
-// function AuraVoice({
-//   speaking = false,
-//   color = "#22c55e",
-// }: {
-//   speaking?: boolean
-//   color?: string
-// }) {
-//   return (
-//     <div className="w-full flex flex-col items-center justify-center pt-4 pb-2">
-//       <div className="relative h-36 w-36">
-//         <div
-//           className={cn("absolute inset-0 rounded-full", speaking ? "animate-ping" : "animate-pulse")}
-//           style={{
-//             backgroundColor: color,
-//             opacity: speaking ? 0.25 : 0.15,
-//             filter: "blur(6px)",
-//           }}
-//           aria-hidden="true"
-//         />
-//         <div
-//           className={cn(
-//             "absolute inset-0 rounded-full shadow-2xl transition-transform duration-300",
-//             speaking ? "scale-105" : "scale-100",
-//           )}
-//           style={{
-//             background: `radial-gradient(60% 60% at 50% 50%, ${color} 0%, rgba(34, 197, 94, 0.65) 45%, rgba(34, 197, 94, 0.15) 100%)`,
-//             boxShadow: `0 0 40px 12px ${color}33`,
-//           }}
-//         />
-//         <div
-//           className={cn("absolute inset-0 rounded-full mix-blend-overlay", speaking ? "animate-pulse" : "")}
-//           style={{
-//             background: "radial-gradient(30% 30% at 30% 30%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)",
-//           }}
-//           aria-hidden="true"
-//         />
-//       </div>
-//     </div>
-//   )
-// }
+function AuraVoice({
+  speaking = false,
+  color = "#22c55e",
+}: {
+  speaking?: boolean
+  color?: string
+}) {
+  return (
+    <div className="w-full flex flex-col items-center justify-center pt-4 pb-2">
+      <div className="relative h-36 w-36">
+        <div
+          className={cn("absolute inset-0 rounded-full", speaking ? "animate-ping" : "animate-pulse")}
+          style={{
+            backgroundColor: color,
+            opacity: speaking ? 0.25 : 0.15,
+            filter: "blur(6px)",
+          }}
+          aria-hidden="true"
+        />
+        <div
+          className={cn(
+            "absolute inset-0 rounded-full shadow-2xl transition-transform duration-300",
+            speaking ? "scale-105" : "scale-100",
+          )}
+          style={{
+            background: `radial-gradient(60% 60% at 50% 50%, ${color} 0%, rgba(34, 197, 94, 0.65) 45%, rgba(34, 197, 94, 0.15) 100%)`,
+            boxShadow: `0 0 40px 12px ${color}33`,
+          }}
+        />
+        <div
+          className={cn("absolute inset-0 rounded-full mix-blend-overlay", speaking ? "animate-pulse" : "")}
+          style={{
+            background: "radial-gradient(30% 30% at 30% 30%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)",
+          }}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+  )
+}
 
 /**
  * Simple chat bubble
@@ -122,7 +122,7 @@ function ChatBubble({
 function ExerciseCheckDialog({
   open = false,
   onOpenChange = () => { },
-  exerciseName = "Ejercicio",
+  exerciseName = "Exercise",
   onResult = () => { },
 }: {
   open?: boolean
@@ -157,8 +157,8 @@ function ExerciseCheckDialog({
               window.clearInterval(interval)
               const ok = Math.random() > 0.4
               const feedback = ok
-                ? "¡Excelente ejecución! Mantén esa técnica."
-                : "Detecté curvatura en la espalda. Mantén el core firme y baja el peso para priorizar la forma."
+                ? "Excellent execution! Keep that technique."
+                : "I detected back curvature. Keep your core firm and lower the weight to prioritize form."
               onResult(ok, feedback)
               stop()
               onOpenChange(false)
@@ -193,19 +193,19 @@ function ExerciseCheckDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[380px] p-0 overflow-hidden">
         <DialogHeader className="px-4 pt-4">
-          <DialogTitle className="text-base">Revisión en tiempo real (15s)</DialogTitle>
+          <DialogTitle className="text-base">Real-time Review (15s)</DialogTitle>
         </DialogHeader>
         <div className="px-4 pb-4">
-          <div className="text-sm text-gray-600 mb-2">{`Mostrando cámara frontal para evaluar: ${exerciseName}`}</div>
+          <div className="text-sm text-gray-600 mb-2">{`Showing front camera to evaluate: ${exerciseName}`}</div>
           <div className="w-full aspect-[9/16] bg-black rounded-xl overflow-hidden mb-3">
             <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-gray-700">
               <Timer className="h-4 w-4" />
-              <span className="text-sm">Restante: {countdown}s</span>
+              <span className="text-sm">Remaining: {countdown}s</span>
             </div>
-            <div className="text-xs text-gray-500">{"Analizando postura…"}</div>
+            <div className="text-xs text-gray-500">{"Analyzing posture…"}</div>
           </div>
         </div>
       </DialogContent>
@@ -266,17 +266,17 @@ function BottomTalkBar({
             <Input
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              placeholder="Escribe tu mensaje"
+              placeholder="Write your message"
               className="text-base h-14 px-4"
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSend()
               }}
-              aria-label="Escribe tu mensaje para el agente"
+              aria-label="Write your message for the agent"
             />
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Enviar mensaje"
+              aria-label="Send message"
               onClick={onSend}
               disabled={!value.trim()}
               className="rounded-xl h-14 w-14"
@@ -311,6 +311,7 @@ function BottomTalkBar({
 export default function Page() {
   const [stage, setStage] = useState<Stage>("init")
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [enablePersonalizedWorkout, setEnablePersonalizedWorkout] = useState<boolean>(false)
 
   // ElevenLabs WebRTC state
   const convo = useConversation()
@@ -389,12 +390,12 @@ export default function Page() {
 
       try {
         const utter = new SpeechSynthesisUtterance(text)
-        utter.lang = "es-MX"
+        utter.lang = "en-US"
         utter.rate = 0.98
         utter.pitch = 1.0
         const voices = window.speechSynthesis.getVoices()
-        const esVoice = voices.find((v) => v.lang.toLowerCase().startsWith("es")) ?? voices[0]
-        if (esVoice) utter.voice = esVoice
+        const enVoice = voices.find((v) => v.lang.toLowerCase().startsWith("en")) ?? voices[0]
+        if (enVoice) utter.voice = enVoice
 
         let i = 0
         const chunk = 2
@@ -425,17 +426,50 @@ export default function Page() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [messages, subtitle])
 
-  // Generate plan function - now enabled and working directly
+  // Flow helpers
+  const connectWearable = useCallback(async () => {
+    setStage("awaitingPermission")
+    await new Promise((r) => setTimeout(r, 900))
+    setStage("connectedAnalyzing")
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: "sys-2",
+        role: "system",
+        kind: "notice",
+        content: "Connected to your wearable. Analyzing your metrics…",
+      },
+    ])
+
+    await new Promise((r) => setTimeout(r, 1400))
+    const greet =
+      "Hello, I'm your gym coach. I've already reviewed your metrics for today. To personalize your plan, answer me this information."
+    speak(greet)
+
+    const q =
+      "1) What is your main goal for these 8 weeks? 2) How many days a week can you train? 3) Do you have any current injuries or discomfort? 4) What is your experience level (beginner, intermediate, advanced)?"
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: "q-1",
+        role: "agent",
+        kind: "questions",
+        content: q,
+      },
+    ])
+    setStage("awaitingAnswers")
+  }, [speak])
+
   const generatePlan = useCallback((answer: string): Plan => {
-    const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     const day = days[new Date().getDay() % days.length]
     return {
-      title: "Rutina personalizada",
-      note: "Enfocada en técnica y progresión. Ajusta el peso para completar la última repetición con buena forma.",
+      title: "Personalized Routine",
+      note: "Focused on technique and progression. Adjust the weight to complete the last repetition with good form.",
       day,
       exercises: [
         {
-          name: "Sentadilla Goblet",
+          name: "Goblet Squat",
           sets: 4,
           reps: "8-10",
           restBetweenSetsSec: 90,
@@ -443,7 +477,7 @@ export default function Page() {
           youtube: "https://www.youtube.com/watch?v=6xwZ5H5Hh6Y",
         },
         {
-          name: "Press de Banca con Mancuernas",
+          name: "Dumbbell Bench Press",
           sets: 3,
           reps: "10-12",
           restBetweenSetsSec: 90,
@@ -451,15 +485,15 @@ export default function Page() {
           youtube: "https://www.youtube.com/watch?v=VmB1G1K7v94",
         },
         {
-          name: "Remo con Mancuerna a una Mano",
+          name: "One-Arm Dumbbell Row",
           sets: 3,
-          reps: "10-12 por lado",
+          reps: "10-12 per side",
           restBetweenSetsSec: 75,
           restBetweenRepsSec: 0,
           youtube: "https://www.youtube.com/watch?v=pYcpY20QaE8",
         },
         {
-          name: "Plancha",
+          name: "Plank",
           sets: 3,
           reps: "30-45s",
           restBetweenSetsSec: 60,
@@ -476,16 +510,16 @@ export default function Page() {
       if (!trimmed) return
       setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", kind: "text", content: trimmed }])
       setInput("")
-      
-      // Generate plan for any user message
-      const plan = generatePlan(trimmed)
-      speak("Perfecto. Aquí tienes tu rutina personalizada para hoy.")
-      setTimeout(() => {
-        setMessages((prev) => [...prev, { id: `plan-${Date.now()}`, role: "agent", kind: "plan", content: plan }])
-        setStage("planDelivered")
-      }, 700)
+      if (stage === "awaitingAnswers") {
+        const plan = generatePlan(trimmed)
+        speak("Perfect. Based on your information, here's your routine for today.")
+        setTimeout(() => {
+          setMessages((prev) => [...prev, { id: `plan-${Date.now()}`, role: "agent", kind: "plan", content: plan }])
+          setStage("planDelivered")
+        }, 700)
+      }
     },
-    [generatePlan, speak],
+    [generatePlan, speak, stage],
   )
 
   const onCheckExercise = useCallback((name: string) => {
@@ -496,12 +530,39 @@ export default function Page() {
   const onCheckResult = useCallback(
     (ok: boolean, feedback?: string) => {
       const msg = ok
-        ? `Tu ${checkingExercise} se ve correcto. ${feedback ?? ""}`
-        : `Hay ajustes para tu ${checkingExercise}. ${feedback ?? ""}`
+        ? `Your ${checkingExercise} looks correct. ${feedback ?? ""}`
+        : `There are adjustments for your ${checkingExercise}. ${feedback ?? ""}`
       setMessages((prev) => [...prev, { id: `check-${Date.now()}`, role: "system", kind: "notice", content: msg }])
     },
     [checkingExercise],
   )
+
+  const QuestionsBlock = useMemo(() => {
+    const qMsg = messages.findLast((m) => m.kind === "questions")
+    if (!qMsg) return null
+    return (
+      <Card className="border-emerald-200">
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Dumbbell className="h-4 w-4 text-emerald-500" />
+            {"Questions to personalize your plan"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ul className="list-decimal list-inside space-y-2 text-sm text-gray-800">
+            {String(qMsg.content)
+              .split(/\d\)/)
+              .map((l) => l.trim())
+              .filter(Boolean)
+              .map((line, idx) => (
+                <li key={idx}>{line}</li>
+              ))}
+          </ul>
+          <div className="mt-3 text-xs text-gray-500">{"Answer below in the message field."}</div>
+        </CardContent>
+      </Card>
+    )
+  }, [messages])
 
   // Initial smooth scroll
   useEffect(() => {
@@ -530,7 +591,40 @@ export default function Page() {
     if (connected) {
       await disconnect()
     } else {
-      await connect()
+      // Check for personalized workout phrase first
+      try {
+        const ws = new WebSocket('ws://localhost:8000/ws/voice')
+        
+        ws.onopen = () => {
+          ws.send("give me a personalize workout")
+        }
+        
+        ws.onmessage = (event) => {
+          if (event.data === "true") {
+            setEnablePersonalizedWorkout(true)
+            toast.success("Personalized workout enabled!")
+            ws.close()
+            return
+          }
+        }
+        
+        ws.onerror = () => {
+          // If WebSocket fails, proceed with normal connection
+          connect()
+        }
+        
+        // Set a timeout to fall back to normal connection
+        setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.close()
+            connect()
+          }
+        }, 2000)
+        
+      } catch (error) {
+        // Fall back to normal connection
+        connect()
+      }
     }
   }
 
@@ -563,13 +657,13 @@ export default function Page() {
               <div className="mx-auto max-w-sm px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full" style={{ backgroundColor: "#22c55e" }} aria-hidden="true" />
-                  <div className="text-sm font-semibold">{"Coach de Gym"}</div>
+                  <div className="text-sm font-semibold">{"Gym Coach"}</div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setMuted((m) => !m)}
-                  aria-label={muted ? "Activar voz del coach" : "Silenciar voz del coach"}
+                  aria-label={muted ? "Activate coach voice" : "Mute coach voice"}
                 >
                   {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                 </Button>
@@ -582,12 +676,13 @@ export default function Page() {
               className={cn("flex-1 overflow-y-auto scroll-smooth relative scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent")}
               style={{ WebkitOverflowScrolling: "touch" }}
             >
-              {/* <div
+              <div
                 className="fixed inset-x-0 z-[60] pointer-events-none"
                 style={{ top: "calc(env(safe-area-inset-top) + 140px)" }}
                 aria-hidden="true"
               >
                 <div className="relative mx-auto flex items-center justify-center" style={{ width: "9rem", height: "9rem" }}>
+                  {/* Radial fade that starts hiding content when it reaches the aura level */}
                   <div
                     className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0"
                     style={{
@@ -597,12 +692,12 @@ export default function Page() {
                         "radial-gradient(closest-side, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 40%, rgba(255,255,255,0.55) 60%, rgba(255,255,255,0) 85%)",
                     }}
                   />
-             
-                  <div className="relative z-10"> 
-                    <AuraVoice speaking={speaking} color="#22c55e" /> 
+                  {/* Aura on top of the fade */}
+                  <div className="relative z-10">
+                    <AuraVoice speaking={speaking} color="#22c55e" />
                   </div>
                 </div>
-              </div> */}
+              </div>
 
               {/* Chat messages with top fade to blend with AuraVoice */}
               <div className="mx-auto max-w-sm px-4 space-y-3 pb-48">
@@ -611,11 +706,38 @@ export default function Page() {
                   <div className="mx-auto max-w-sm h-full w-full bg-gradient-to-b from-white via-white/90 to-transparent" />
                 </div>
 
-                {/* Welcome message */}
-                {stage === "init" && (
-                  <ChatBubble role="agent">
-                    Hola, soy tu coach de gimnasio. Escribe cualquier mensaje y te generaré una rutina personalizada para hoy.
-                  </ChatBubble>
+                {/* Personalized Workout Button - shown when enabled */}
+                {enablePersonalizedWorkout && (
+                  <div className="mb-4">
+                    <Card className="border-emerald-200 bg-emerald-50">
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-base flex items-center gap-2 text-emerald-800">
+                          <Dumbbell className="h-5 w-5 text-emerald-600" />
+                          Personalized Workout Available
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <p className="text-sm text-emerald-700 mb-3">
+                          You can now access your personalized workout routine. Click below to start.
+                        </p>
+                        <Button 
+                          className="w-full bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => {
+                            setEnablePersonalizedWorkout(false)
+                            connectWearable()
+                          }}
+                        >
+                          Start Personalized Workout
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {stage === "awaitingPermission" && <ChatBubble role="system">{"Requesting permission…"}</ChatBubble>}
+
+                {stage === "connectedAnalyzing" && (
+                  <ChatBubble role="system">{"Connected. Analyzing today's metrics…"}</ChatBubble>
                 )}
 
                 {messages.map((m) => {
@@ -652,13 +774,13 @@ export default function Page() {
                                       }}
                                     >
                                       <Play className="h-3.5 w-3.5 mr-1" />
-                                      {"Revisión 15s"}
+                                      {"15s Review"}
                                     </Button>
                                   </div>
-                                  <div className="mt-1 text-sm text-gray-700">{`Series: ${ex.sets} • Reps: ${ex.reps}`}</div>
+                                  <div className="mt-1 text-sm text-gray-700">{`Sets: ${ex.sets} • Reps: ${ex.reps}`}</div>
                                   <div className="text-xs text-gray-500">
-                                    {`Descanso: ${ex.restBetweenSetsSec}s entre series`}
-                                    {ex.restBetweenRepsSec ? ` • ${ex.restBetweenRepsSec}s entre reps` : ""}
+                                    {`Rest: ${ex.restBetweenSetsSec}s between sets`}
+                                    {ex.restBetweenRepsSec ? ` • ${ex.restBetweenRepsSec}s between reps` : ""}
                                   </div>
                                   <a
                                     href={ex.youtube}
@@ -666,13 +788,21 @@ export default function Page() {
                                     rel="noreferrer"
                                     className="mt-2 inline-block text-xs text-emerald-700 underline"
                                   >
-                                    {"Ver técnica en YouTube"}
+                                    {"Watch technique on YouTube"}
                                   </a>
                                 </div>
                               ))}
                             </div>
                           </CardContent>
                         </Card>
+                      </div>
+                    )
+                  }
+
+                  if (m.kind === "questions") {
+                    return (
+                      <div key={m.id} className="mb-3">
+                        <ChatBubble role="agent">{QuestionsBlock}</ChatBubble>
                       </div>
                     )
                   }
