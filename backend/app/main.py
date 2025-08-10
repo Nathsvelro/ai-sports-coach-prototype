@@ -40,6 +40,23 @@ def health():
 async def voice_chat(websocket: WebSocket):
     await websocket.accept()
     
+    # Check if this is a phrase detection request
+    try:
+        # First, try to receive a text message to check the scenario
+        message = await websocket.receive_text()
+        
+        # Check if it's the personalized workout phrase
+        if message.lower().strip() == "give me a personalize workout":
+            # Send true to enable personalized workout
+            await websocket.send_text("true")
+            await websocket.close()
+            return
+            
+    except Exception:
+        # If no text message, proceed with the original audio streaming logic
+        pass
+    
+    # Original audio streaming logic (ElevenLabs connection)
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(ELEVENLABS_WS_URL, headers={
             "xi-api-key": "TU_API_KEY"
@@ -57,7 +74,7 @@ async def voice_chat(websocket: WebSocket):
                     elif msg.type == aiohttp.WSMsgType.TEXT:
                         await websocket.send_text(msg.data)
 
-            # Ejecutar envío y recepción en paralelo
+            # Execute sending and receiving in parallel
             await asyncio.gather(forward_to_eleven(), forward_to_client())
 
 
@@ -65,47 +82,47 @@ async def voice_chat(websocket: WebSocket):
 async def websocket_video(websocket: WebSocket):
     await websocket.accept()
 
-    ejercicio = None
+    exercise = None
     history = []
     start_time = time.time()
 
     try:
         while True:
-            mensaje = await websocket.receive_json()
-            data = json.loads(mensaje)
+            message = await websocket.receive_json()
+            data = json.loads(message)
 
-            if "ejercicio" in data and ejercicio is None:
-                ejercicio = data["ejercicio"]
+            if "ejercicio" in data and exercise is None:
+                exercise = data["ejercicio"]
 
             if "frame" in data and data["frame"]:
-                # Procesar frame
+                # Process frame
                 angulos, simetrias = procesar_frame(data['frame'])
 
-                # Guardar en historial
+                # Save to history
                 history.append({
                     "timestamp": time.time(),
                     "angulos": angulos,
                     "simetrias": simetrias
                 })
 
-            # mantener 15 segundos
+            # keep 15 seconds
             if time.time() - start_time >= 15:
-                # llamada a ollama
-                response = text_to_text_ollama(datos=random.sample(history[5:-6],3), ejercicio=ejercicio)
-                # envio a elevenlabs
+                # call to ollama
+                response = text_to_text_ollama(datos=random.sample(history[5:-6],3), ejercicio=exercise)
+                # send to elevenlabs
                 audio = text_to_speech(datos=response)
                 
-                # Enviar audio y texto al cliente
+                # Send audio and text to client
                 await websocket.send_json({
                     "audio": audio,
                     "texto": response
                 })
 
-                # Cerrar conexión WebSocket
+                # Close WebSocket connection
                 await websocket.close()
                 break
 
     except Exception as e:
-        print("WebSocket cerrado:", e)
+        print("WebSocket closed:", e)
     finally:
         cv2.destroyAllWindows()
