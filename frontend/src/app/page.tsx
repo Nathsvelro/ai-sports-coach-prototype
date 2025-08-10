@@ -15,7 +15,7 @@ import { useConversation } from '@elevenlabs/react'
 import { getWebRTCToken } from '@/lib/api'
 
 type Role = "agent" | "user" | "system"
-type MessageKind = "text" | "questions" | "plan" | "notice"
+type MessageKind = "text" | "plan" | "notice"
 
 type Exercise = {
   name: string
@@ -40,51 +40,51 @@ type ChatMessage = {
   content: string | Plan
 }
 
-type Stage = "init" | "awaitingPermission" | "connectedAnalyzing" | "awaitingAnswers" | "planDelivered"
+type Stage = "init" | "planDelivered"
 
 /**
  * Animated green aura (visual only)
  */
-function AuraVoice({
-  speaking = false,
-  color = "#22c55e",
-}: {
-  speaking?: boolean
-  color?: string
-}) {
-  return (
-    <div className="w-full flex flex-col items-center justify-center pt-4 pb-2">
-      <div className="relative h-36 w-36">
-        <div
-          className={cn("absolute inset-0 rounded-full", speaking ? "animate-ping" : "animate-pulse")}
-          style={{
-            backgroundColor: color,
-            opacity: speaking ? 0.25 : 0.15,
-            filter: "blur(6px)",
-          }}
-          aria-hidden="true"
-        />
-        <div
-          className={cn(
-            "absolute inset-0 rounded-full shadow-2xl transition-transform duration-300",
-            speaking ? "scale-105" : "scale-100",
-          )}
-          style={{
-            background: `radial-gradient(60% 60% at 50% 50%, ${color} 0%, rgba(34, 197, 94, 0.65) 45%, rgba(34, 197, 94, 0.15) 100%)`,
-            boxShadow: `0 0 40px 12px ${color}33`,
-          }}
-        />
-        <div
-          className={cn("absolute inset-0 rounded-full mix-blend-overlay", speaking ? "animate-pulse" : "")}
-          style={{
-            background: "radial-gradient(30% 30% at 30% 30%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)",
-          }}
-          aria-hidden="true"
-        />
-      </div>
-    </div>
-  )
-}
+// function AuraVoice({
+//   speaking = false,
+//   color = "#22c55e",
+// }: {
+//   speaking?: boolean
+//   color?: string
+// }) {
+//   return (
+//     <div className="w-full flex flex-col items-center justify-center pt-4 pb-2">
+//       <div className="relative h-36 w-36">
+//         <div
+//           className={cn("absolute inset-0 rounded-full", speaking ? "animate-ping" : "animate-pulse")}
+//           style={{
+//             backgroundColor: color,
+//             opacity: speaking ? 0.25 : 0.15,
+//             filter: "blur(6px)",
+//           }}
+//           aria-hidden="true"
+//         />
+//         <div
+//           className={cn(
+//             "absolute inset-0 rounded-full shadow-2xl transition-transform duration-300",
+//             speaking ? "scale-105" : "scale-100",
+//           )}
+//           style={{
+//             background: `radial-gradient(60% 60% at 50% 50%, ${color} 0%, rgba(34, 197, 94, 0.65) 45%, rgba(34, 197, 94, 0.15) 100%)`,
+//             boxShadow: `0 0 40px 12px ${color}33`,
+//           }}
+//         />
+//         <div
+//           className={cn("absolute inset-0 rounded-full mix-blend-overlay", speaking ? "animate-pulse" : "")}
+//           style={{
+//             background: "radial-gradient(30% 30% at 30% 30%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)",
+//           }}
+//           aria-hidden="true"
+//         />
+//       </div>
+//     </div>
+//   )
+// }
 
 /**
  * Simple chat bubble
@@ -425,40 +425,7 @@ export default function Page() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
   }, [messages, subtitle])
 
-  // Flow helpers
-  const connectWearable = useCallback(async () => {
-    setStage("awaitingPermission")
-    await new Promise((r) => setTimeout(r, 900))
-    setStage("connectedAnalyzing")
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: "sys-2",
-        role: "system",
-        kind: "notice",
-        content: "Conectado a tu wearable. Analizando tus métricas…",
-      },
-    ])
-
-    await new Promise((r) => setTimeout(r, 1400))
-    const greet =
-      "Hola, soy tu coach de gimnasio. Ya revisé tus métricas de hoy. Para personalizar tu plan, respóndeme esta información."
-    speak(greet)
-
-    const q =
-      "1) ¿Cuál es tu objetivo principal estas 8 semanas? 2) ¿Cuántos días a la semana puedes entrenar? 3) ¿Tienes alguna lesión o molestia actual? 4) ¿Cuál es tu nivel de experiencia (principiante, intermedio, avanzado)?"
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: "q-1",
-        role: "agent",
-        kind: "questions",
-        content: q,
-      },
-    ])
-    setStage("awaitingAnswers")
-  }, [speak])
-
+  // Generate plan function - now enabled and working directly
   const generatePlan = useCallback((answer: string): Plan => {
     const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
     const day = days[new Date().getDay() % days.length]
@@ -509,16 +476,16 @@ export default function Page() {
       if (!trimmed) return
       setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", kind: "text", content: trimmed }])
       setInput("")
-      if (stage === "awaitingAnswers") {
-        const plan = generatePlan(trimmed)
-        speak("Perfecto. Con base en tu información, aquí tienes tu rutina de hoy.")
-        setTimeout(() => {
-          setMessages((prev) => [...prev, { id: `plan-${Date.now()}`, role: "agent", kind: "plan", content: plan }])
-          setStage("planDelivered")
-        }, 700)
-      }
+      
+      // Generate plan for any user message
+      const plan = generatePlan(trimmed)
+      speak("Perfecto. Aquí tienes tu rutina personalizada para hoy.")
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { id: `plan-${Date.now()}`, role: "agent", kind: "plan", content: plan }])
+        setStage("planDelivered")
+      }, 700)
     },
-    [generatePlan, speak, stage],
+    [generatePlan, speak],
   )
 
   const onCheckExercise = useCallback((name: string) => {
@@ -535,33 +502,6 @@ export default function Page() {
     },
     [checkingExercise],
   )
-
-  const QuestionsBlock = useMemo(() => {
-    const qMsg = messages.findLast((m) => m.kind === "questions")
-    if (!qMsg) return null
-    return (
-      <Card className="border-emerald-200">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Dumbbell className="h-4 w-4 text-emerald-500" />
-            {"Preguntas para personalizar tu plan"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <ul className="list-decimal list-inside space-y-2 text-sm text-gray-800">
-            {String(qMsg.content)
-              .split(/\d\)/)
-              .map((l) => l.trim())
-              .filter(Boolean)
-              .map((line, idx) => (
-                <li key={idx}>{line}</li>
-              ))}
-          </ul>
-          <div className="mt-3 text-xs text-gray-500">{"Responde abajo en el campo de mensaje."}</div>
-        </CardContent>
-      </Card>
-    )
-  }, [messages])
 
   // Initial smooth scroll
   useEffect(() => {
@@ -642,13 +582,12 @@ export default function Page() {
               className={cn("flex-1 overflow-y-auto scroll-smooth relative scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent")}
               style={{ WebkitOverflowScrolling: "touch" }}
             >
-              <div
+              {/* <div
                 className="fixed inset-x-0 z-[60] pointer-events-none"
                 style={{ top: "calc(env(safe-area-inset-top) + 140px)" }}
                 aria-hidden="true"
               >
                 <div className="relative mx-auto flex items-center justify-center" style={{ width: "9rem", height: "9rem" }}>
-                  {/* Radial fade that starts hiding content when it reaches the aura level */}
                   <div
                     className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0"
                     style={{
@@ -658,12 +597,12 @@ export default function Page() {
                         "radial-gradient(closest-side, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 40%, rgba(255,255,255,0.55) 60%, rgba(255,255,255,0) 85%)",
                     }}
                   />
-                  {/* Aura on top of the fade */}
-                  <div className="relative z-10">
-                    <AuraVoice speaking={speaking} color="#22c55e" />
+             
+                  <div className="relative z-10"> 
+                    <AuraVoice speaking={speaking} color="#22c55e" /> 
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               {/* Chat messages with top fade to blend with AuraVoice */}
               <div className="mx-auto max-w-sm px-4 space-y-3 pb-48">
@@ -672,11 +611,11 @@ export default function Page() {
                   <div className="mx-auto max-w-sm h-full w-full bg-gradient-to-b from-white via-white/90 to-transparent" />
                 </div>
 
-
-                {stage === "awaitingPermission" && <ChatBubble role="system">{"Solicitando permiso…"}</ChatBubble>}
-
-                {stage === "connectedAnalyzing" && (
-                  <ChatBubble role="system">{"Conectado. Analizando métricas de hoy…"}</ChatBubble>
+                {/* Welcome message */}
+                {stage === "init" && (
+                  <ChatBubble role="agent">
+                    Hola, soy tu coach de gimnasio. Escribe cualquier mensaje y te generaré una rutina personalizada para hoy.
+                  </ChatBubble>
                 )}
 
                 {messages.map((m) => {
@@ -734,14 +673,6 @@ export default function Page() {
                             </div>
                           </CardContent>
                         </Card>
-                      </div>
-                    )
-                  }
-
-                  if (m.kind === "questions") {
-                    return (
-                      <div key={m.id} className="mb-3">
-                        <ChatBubble role="agent">{QuestionsBlock}</ChatBubble>
                       </div>
                     )
                   }
