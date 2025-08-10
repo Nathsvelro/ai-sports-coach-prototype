@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Volume2, VolumeX, Dumbbell, Timer, Play, Mic, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast, Toaster } from "sonner"
+import { useConversation } from '@elevenlabs/react'
+import { getWebRTCToken } from '@/lib/api'
 
 type Role = "agent" | "user" | "system"
 type MessageKind = "text" | "questions" | "plan" | "notice"
@@ -313,8 +315,9 @@ export default function Page() {
     },
   ])
 
-  // Voice state
-  const [voiceActive, setVoiceActive] = useState(false)
+  // ElevenLabs WebRTC state
+  const convo = useConversation()
+  const [connected, setConnected] = useState(false)
   const [muted, setMuted] = useState<boolean>(false)
   const [speaking, setSpeaking] = useState<boolean>(false)
   const [subtitle, setSubtitle] = useState<string>("") // shown in chat as live bubble
@@ -329,14 +332,48 @@ export default function Page() {
   const listRef = useRef<HTMLDivElement | null>(null)
   const chatEndRef = useRef<HTMLDivElement | null>(null)
 
-  // Auto scroll to bottom on changes
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [messages, subtitle])
+  // ElevenLabs WebRTC connection functions
+  const connect = useCallback(async () => {
+    try {
+      const token = await getWebRTCToken()
+      await convo.startSession({
+        conversationToken: token,
+        connectionType: 'webrtc',
+        onConnect: () => {
+          setConnected(true)
+          toast.success("Connected to ElevenLabs voice agent")
+        },
+        onDisconnect: () => {
+          setConnected(false)
+          toast.info("Disconnected from voice agent")
+        },
+        onError: (e) => {
+          console.error('ElevenLabs error', e)
+          toast.error("Voice connection error")
+        },
+      })
+    } catch (error) {
+      console.error('Failed to connect:', error)
+      toast.error("Failed to connect to voice agent")
+    }
+  }, [convo])
 
-  // Simple TTS with typewriter subtitles (live bubble in chat)
-  const speak = useCallback(
-    async (text: string) => {
+  const disconnect = useCallback(async () => {
+    try {
+      await convo.endSession?.()
+      setConnected(false)
+      toast.info("Voice connection ended")
+    } catch (error) {
+      console.error('Failed to disconnect:', error)
+    }
+  }, [convo])
+
+  const speak = useCallback((text: string) => {
+    if (connected) {
+      // Send message to ElevenLabs agent
+      convo.sendUserMessage?.(text)
+    } else {
+      // Fallback to TTS
       setSubtitle("")
       if (muted || typeof window === "undefined" || !("speechSynthesis" in window)) {
         setSpeaking(false)
@@ -383,9 +420,13 @@ export default function Page() {
         setSpeaking(false)
         setSubtitle("")
       }
-    },
-    [muted],
-  )
+    }
+  }, [connected, convo, muted])
+
+  // Auto scroll to bottom on changes
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [messages, subtitle])
 
   // Flow helpers
   const connectWearable = useCallback(async () => {
@@ -531,13 +572,12 @@ export default function Page() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
   }, [])
 
-  const handleMic = () => {
-    setVoiceActive((v) => !v)
-    toast(!voiceActive ? "Connecting voice…" : "Voice ended", {
-      description: !voiceActive
-        ? "Simulando llamada con el agente. El aura resaltará mientras esté activo."
-        : "La llamada de voz terminó.",
-    })
+  const handleMic = async () => {
+    if (connected) {
+      await disconnect()
+    } else {
+      await connect()
+    }
   }
 
   return (
@@ -694,7 +734,7 @@ export default function Page() {
         onChange={setInput}
         onSend={() => sendTextMessage(input)}
         onMic={handleMic}
-        micActive={voiceActive}
+        micActive={connected}
       />
 
       {/* 15s check dialog */}
