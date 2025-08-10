@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Volume2, VolumeX, Dumbbell, Timer, Play, Mic, Send } from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Volume2, VolumeX, Dumbbell, Timer, Play, Phone, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast, Toaster } from "sonner"
 import { useConversation } from '@elevenlabs/react'
@@ -120,9 +121,9 @@ function ChatBubble({
  */
 function ExerciseCheckDialog({
   open = false,
-  onOpenChange = () => {},
+  onOpenChange = () => { },
   exerciseName = "Ejercicio",
-  onResult = () => {},
+  onResult = () => { },
 }: {
   open?: boolean
   onOpenChange?: (next: boolean) => void
@@ -233,73 +234,77 @@ function BottomTalkBar({
   micActive: boolean
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50">
-      <div className="relative mx-auto w-full max-w-sm">
-        {/* Glowing aura layer behind the bar */}
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-[94%] h-28 pointer-events-none" aria-hidden="true">
-          <div
-            className={cn(
-              "absolute inset-0 rounded-full blur-2xl transition-opacity",
-              "bg-emerald-500/40",
-              micActive ? "opacity-100 animate-pulse" : "opacity-70",
-            )}
-          />
-          <div
-            className={cn(
-              "absolute inset-0 rounded-full blur-3xl mix-blend-screen",
-              "bg-[radial-gradient(60%_60%_at_50%_50%,rgba(16,185,129,0.9),rgba(16,185,129,0.4)_45%,transparent_90%)]",
-            )}
-          />
-        </div>
-
-        {/* Bar container */}
+    <div className="relative mx-auto w-full max-w-sm">
+      {/* Glowing aura layer behind the bar */}
+      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-[94%] h-28 pointer-events-none" aria-hidden="true">
         <div
           className={cn(
-            "relative mx-3 mb-[max(10px,env(safe-area-inset-bottom))]",
-            "rounded-2xl border border-emerald-200/70 bg-white/85 backdrop-blur",
-            "shadow-[0_8px_30px_rgba(16,185,129,0.25)]",
+            "absolute inset-0 rounded-full blur-2xl transition-opacity",
+            "bg-emerald-500/40",
+            micActive ? "opacity-100 animate-pulse" : "opacity-70",
           )}
-        >
-          <div className="flex items-center gap-3 p-3">
-            {/* Bigger text input */}
-            <div className="flex-1 flex items-center gap-2">
-              <Input
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="Escribe tu mensaje"
-                className="text-base h-14 px-4"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") onSend()
-                }}
-                aria-label="Escribe tu mensaje para el agente"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Enviar mensaje"
-                onClick={onSend}
-                disabled={!value.trim()}
-                className="rounded-xl h-14 w-14"
-              >
-                <Send className={cn("h-6 w-6", value.trim() ? "text-emerald-600" : "text-gray-300")} />
-              </Button>
-            </div>
+        />
+        <div
+          className={cn(
+            "absolute inset-0 rounded-full blur-3xl mix-blend-screen",
+            "bg-[radial-gradient(60%_60%_at_50%_50%,rgba(16,185,129,0.9),rgba(16,185,129,0.4)_45%,transparent_90%)]",
+          )}
+        />
+      </div>
 
-            {/* Mic button: icon only, green background */}
+      {/* Bar container */}
+      <div
+        className={cn(
+          "relative mx-3 mb-[max(10px,env(safe-area-inset-bottom))]",
+          "rounded-2xl border border-emerald-200/70 bg-white/85 backdrop-blur",
+          "shadow-[0_8px_30px_rgba(16,185,129,0.25)]",
+        )}
+      >
+        <div className="flex items-center gap-3 p-3">
+          {/* Bigger text input */}
+          <div className="flex-1 flex items-center gap-2">
+            <Input
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="Escribe tu mensaje"
+              className="text-base h-14 px-4"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSend()
+              }}
+              aria-label="Escribe tu mensaje para el agente"
+            />
             <Button
-              onClick={onMic}
+              variant="ghost"
               size="icon"
-              className={cn("h-14 w-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white")}
-              aria-pressed={micActive}
-              aria-label="Talk to Agent"
-              title="Talk to Agent"
+              aria-label="Enviar mensaje"
+              onClick={onSend}
+              disabled={!value.trim()}
+              className="rounded-xl h-14 w-14"
             >
-              <Mic className="h-6 w-6" />
+              <Send className={cn("h-6 w-6", value.trim() ? "text-emerald-600" : "text-gray-300")} />
             </Button>
           </div>
+
+          {/* Call button: icon only, changes color based on connection status */}
+          <Button
+            onClick={onMic}
+            size="icon"
+            className={cn(
+              "h-14 w-14 rounded-xl text-white transition-colors duration-200",
+              micActive
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-emerald-600 hover:bg-emerald-700"
+            )}
+            aria-pressed={micActive}
+            aria-label="Talk to Agent"
+            title="Talk to Agent"
+          >
+            <Phone className="h-6 w-6" />
+          </Button>
         </div>
       </div>
     </div>
+
   )
 }
 
@@ -564,6 +569,23 @@ export default function Page() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
   }, [])
 
+  // Auto-scroll to bottom when new messages arrive (like WhatsApp)
+  useEffect(() => {
+    if (listRef.current) {
+      const scrollToBottom = () => {
+        const el = listRef.current!
+        // Smooth scroll to bottom to show latest message above BottomTalkBar
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
+
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(scrollToBottom)
+    }
+  }, [messages])
+
   const handleMic = async () => {
     if (connected) {
       await disconnect()
@@ -573,154 +595,209 @@ export default function Page() {
   }
 
   return (
-    <main className="relative h-[100dvh] bg-white flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100">
-        <div className="mx-auto max-w-sm px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full" style={{ backgroundColor: "#22c55e" }} aria-hidden="true" />
-            <div className="text-sm font-semibold">{"Coach de Gym"}</div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 flex items-center justify-center p-4">
+      {/* iPhone-like device frame */}
+      <div className="relative w-[375px] h-[812px] bg-black rounded-[3rem] p-3 shadow-2xl">
+        {/* iPhone notch */}
+        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-black rounded-b-3xl z-20"></div>
+
+        {/* iPhone screen */}
+        <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
+          {/* Status bar */}
+          <div className="h-11 bg-black text-white flex items-center justify-between px-8 text-sm font-medium relative z-10">
+            <div className="flex items-center gap-1">
+              <div className="w-6 h-3 bg-white rounded-full"></div>
+              <span>9:41</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-2 bg-white rounded-sm"></div>
+              <div className="w-6 h-2 bg-white rounded-sm"></div>
+              <div className="w-8 h-2 bg-white rounded-sm"></div>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMuted((m) => !m)}
-            aria-label={muted ? "Activar voz del coach" : "Silenciar voz del coach"}
-          >
-            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-          </Button>
-        </div>
-      </header>
 
-      {/* Aura (visual only) */}
-      <AuraVoice speaking={speaking} color="#22c55e" />
-
-      {/* Scrollable chat list */}
-      <div
-        ref={listRef}
-        className={cn("flex-1 overflow-y-auto scroll-smooth")}
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <div className="mx-auto max-w-sm px-4 space-y-3 pb-48">
-
-
-          {stage === "awaitingPermission" && <ChatBubble role="system">{"Solicitando permiso…"}</ChatBubble>}
-
-          {stage === "connectedAnalyzing" && (
-            <ChatBubble role="system">{"Conectado. Analizando métricas de hoy…"}</ChatBubble>
-          )}
-
-          {messages.map((m) => {
-            if (m.kind === "plan") {
-              const plan = m.content as Plan
-              return (
-                <div key={m.id} className="mb-4">
-                  <Card>
-                    <CardHeader className="py-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Dumbbell className="h-5 w-5 text-emerald-600" />
-                        {plan.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100" variant="secondary">
-                          {plan.day}
-                        </Badge>
-                        {plan.note && <span className="text-xs text-gray-500">{plan.note}</span>}
-                      </div>
-                      <div className="space-y-3">
-                        {plan.exercises.map((ex, idx) => (
-                          <div key={`${ex.name}-${idx}`} className="rounded-xl border border-gray-200 p-3">
-                            <div className="flex items-center justify-between">
-                              <div className="font-medium">{ex.name}</div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-emerald-300 text-emerald-700 bg-transparent"
-                                onClick={() => {
-                                  setCheckingExercise(ex.name)
-                                  setCheckOpen(true)
-                                }}
-                              >
-                                <Play className="h-3.5 w-3.5 mr-1" />
-                                {"Revisión 15s"}
-                              </Button>
-                            </div>
-                            <div className="mt-1 text-sm text-gray-700">{`Series: ${ex.sets} • Reps: ${ex.reps}`}</div>
-                            <div className="text-xs text-gray-500">
-                              {`Descanso: ${ex.restBetweenSetsSec}s entre series`}
-                              {ex.restBetweenRepsSec ? ` • ${ex.restBetweenRepsSec}s entre reps` : ""}
-                            </div>
-                            <a
-                              href={ex.youtube}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-block text-xs text-emerald-700 underline"
-                            >
-                              {"Ver técnica en YouTube"}
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+          {/* Main app content */}
+          <main className="relative h-[calc(100%-44px)] bg-white flex flex-col">
+            {/* Header */}
+            <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100">
+              <div className="mx-auto max-w-sm px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full" style={{ backgroundColor: "#22c55e" }} aria-hidden="true" />
+                  <div className="text-sm font-semibold">{"Coach de Gym"}</div>
                 </div>
-              )
-            }
-
-            if (m.kind === "questions") {
-              return (
-                <div key={m.id} className="mb-3">
-                  <ChatBubble role="agent">{QuestionsBlock}</ChatBubble>
-                </div>
-              )
-            }
-
-            return (
-              <div key={m.id}>
-                <ChatBubble role={m.role}>
-                  <div className="whitespace-pre-line">{String(m.content)}</div>
-                </ChatBubble>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMuted((m) => !m)}
+                  aria-label={muted ? "Activar voz del coach" : "Silenciar voz del coach"}
+                >
+                  {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                </Button>
               </div>
-            )
-          })}
+            </header>
 
-          {/* Live subtitles bubble in chat */}
-          {subtitle && (
-            <ChatBubble role="agent">
-              <div className="text-gray-800">{subtitle}</div>
-            </ChatBubble>
-          )}
+            {/* Scrollable chat list with integrated AuraVoice */}
+            <div
+              ref={listRef}
+              className={cn("flex-1 overflow-y-auto scroll-smooth relative scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent")}
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              <div
+                className="fixed inset-x-0 z-[60] pointer-events-none"
+                style={{ top: "calc(env(safe-area-inset-top) + 140px)" }}
+                aria-hidden="true"
+              >
+                <div className="relative mx-auto flex items-center justify-center" style={{ width: "9rem", height: "9rem" }}>
+                  {/* Radial fade that starts hiding content when it reaches the aura level */}
+                  <div
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0"
+                    style={{
+                      width: "16rem",
+                      height: "16rem",
+                      background:
+                        "radial-gradient(closest-side, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 40%, rgba(255,255,255,0.55) 60%, rgba(255,255,255,0) 85%)",
+                    }}
+                  />
+                  {/* Aura on top of the fade */}
+                  <div className="relative z-10">
+                    <AuraVoice speaking={speaking} color="#22c55e" />
+                  </div>
+                </div>
+              </div>
 
-          <div ref={chatEndRef} />
+              {/* Chat messages with top fade to blend with AuraVoice */}
+              <div className="mx-auto max-w-sm px-4 space-y-3 pb-48">
+                {/* Top fade overlay to make chat text disappear as it approaches AuraVoice */}
+                <div className="relative h-16 pointer-events-none z-20" aria-hidden="true">
+                  <div className="mx-auto max-w-sm h-full w-full bg-gradient-to-b from-white via-white/90 to-transparent" />
+                </div>
+
+
+                {stage === "awaitingPermission" && <ChatBubble role="system">{"Solicitando permiso…"}</ChatBubble>}
+
+                {stage === "connectedAnalyzing" && (
+                  <ChatBubble role="system">{"Conectado. Analizando métricas de hoy…"}</ChatBubble>
+                )}
+
+                {messages.map((m) => {
+                  if (m.kind === "plan") {
+                    const plan = m.content as Plan
+                    return (
+                      <div key={m.id} className="mb-4">
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Dumbbell className="h-5 w-5 text-emerald-600" />
+                              {plan.title}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100" variant="secondary">
+                                {plan.day}
+                              </Badge>
+                              {plan.note && <span className="text-xs text-gray-500">{plan.note}</span>}
+                            </div>
+                            <div className="space-y-3">
+                              {plan.exercises.map((ex, idx) => (
+                                <div key={`${ex.name}-${idx}`} className="rounded-xl border border-gray-200 p-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="font-medium">{ex.name}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-emerald-300 text-emerald-700 bg-transparent"
+                                      onClick={() => {
+                                        setCheckingExercise(ex.name)
+                                        setCheckOpen(true)
+                                      }}
+                                    >
+                                      <Play className="h-3.5 w-3.5 mr-1" />
+                                      {"Revisión 15s"}
+                                    </Button>
+                                  </div>
+                                  <div className="mt-1 text-sm text-gray-700">{`Series: ${ex.sets} • Reps: ${ex.reps}`}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {`Descanso: ${ex.restBetweenSetsSec}s entre series`}
+                                    {ex.restBetweenRepsSec ? ` • ${ex.restBetweenRepsSec}s entre reps` : ""}
+                                  </div>
+                                  <a
+                                    href={ex.youtube}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-2 inline-block text-xs text-emerald-700 underline"
+                                  >
+                                    {"Ver técnica en YouTube"}
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )
+                  }
+
+                  if (m.kind === "questions") {
+                    return (
+                      <div key={m.id} className="mb-3">
+                        <ChatBubble role="agent">{QuestionsBlock}</ChatBubble>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div key={m.id}>
+                      <ChatBubble role={m.role}>
+                        <div className="whitespace-pre-line">{String(m.content)}</div>
+                      </ChatBubble>
+                    </div>
+                  )
+                })}
+
+                {/* Live subtitles bubble in chat */}
+                {subtitle && (
+                  <ChatBubble role="agent">
+                    <div className="text-gray-800">{subtitle}</div>
+                  </ChatBubble>
+                )}
+
+                {/* Spacer to ensure last message is visible above BottomTalkBar */}
+                <div className="h-2" />
+
+                <div ref={chatEndRef} />
+              </div>
+            </div>
+
+            {/* Bottom fade overlay (covers the full talk bar height) */}
+            <div className="absolute inset-x-0 bottom-0 h-48 pointer-events-none z-40" aria-hidden="true">
+              <div className="mx-auto max-w-sm h-full w-full bg-gradient-to-b from-transparent via-white/70 to-white" />
+            </div>
+
+            {/* Bottom talk bar positioned inside iPhone frame */}
+            <div className="absolute inset-x-0 bottom-0 z-50">
+              <BottomTalkBar
+                value={input}
+                onChange={setInput}
+                onSend={() => sendTextMessage(input)}
+                onMic={handleMic}
+                micActive={connected}
+              />
+            </div>
+
+            {/* 15s check dialog */}
+            <ExerciseCheckDialog
+              open={checkOpen}
+              onOpenChange={setCheckOpen}
+              exerciseName={checkingExercise}
+              onResult={onCheckResult}
+            />
+
+            {/* Toast notifications */}
+            <Toaster />
+          </main>
         </div>
       </div>
-
-      {/* Bottom fade overlay (taller to cover the fixed talk bar height) */}
-      <div className="fixed inset-x-0 bottom-0 h-44 pointer-events-none z-40" aria-hidden="true">
-        <div className="mx-auto max-w-sm h-full w-full bg-gradient-to-b from-transparent via-white/70 to-white" />
-      </div>
-
-      {/* Fixed bottom talk bar with input + mic */}
-      <BottomTalkBar
-        value={input}
-        onChange={setInput}
-        onSend={() => sendTextMessage(input)}
-        onMic={handleMic}
-        micActive={connected}
-      />
-
-      {/* 15s check dialog */}
-      <ExerciseCheckDialog
-        open={checkOpen}
-        onOpenChange={setCheckOpen}
-        exerciseName={checkingExercise}
-        onResult={onCheckResult}
-      />
-
-      {/* Toast notifications */}
-      <Toaster />
-    </main>
+    </div>
   )
 }
