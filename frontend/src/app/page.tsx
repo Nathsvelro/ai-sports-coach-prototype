@@ -925,22 +925,22 @@ export default function Page() {
                     return (
                       <div key={m.id} className="mb-4">
                         <Card>
-                          <CardHeader className="py-3">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              <Dumbbell className="h-5 w-5 text-emerald-600" />
+                          <CardHeader className="py-6 pb-4 bg-gradient-to-b from-emerald-50 to-white rounded-t-xl">
+                            <CardTitle className="text-2xl font-extrabold text-center text-emerald-800 flex flex-col items-center gap-3">
+                              <Dumbbell className="h-8 w-8 text-emerald-600" />
                               {plan.title}
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div className="space-y-2">
-                              <div>
+                              <div className="text-center">
                                 <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100" variant="secondary">
                                   {plan.day}
                                 </Badge>
                               </div>
                               
                               {plan.note && (
-                                <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2 border border-gray-100">
+                                <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2 border border-gray-100 text-center">
                                   {plan.note}
                                 </div>
                               )}
