@@ -122,7 +122,7 @@ function ChatBubble({
 function ExerciseCheckDialog({
   open = false,
   onOpenChange = () => { },
-  exerciseName = "Ejercicio",
+  exerciseName = "Exercise",
   onResult = () => { },
 }: {
   open?: boolean
@@ -131,42 +131,212 @@ function ExerciseCheckDialog({
   onResult?: (ok: boolean, feedback?: string) => void
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [countdown, setCountdown] = useState<number>(15)
+  const [countdown, setCountdown] = useState<number>(5) // Start with 5 second countdown
+  const [reviewPhase, setReviewPhase] = useState<'countdown' | 'video' | 'feedback'>('countdown')
+  const [feedbackMessage, setFeedbackMessage] = useState('')
   const streamRef = useRef<MediaStream | null>(null)
+
+  // Define exercises that should show videos instead of camera
+  const exercisesWithVideos = ["Bicep curl", "Dumbbell Bench Press", "One-Arm Dumbbell Row", "Plank"]
 
   useEffect(() => {
     let interval: number | undefined
 
+    // Helper function to start camera
+    async function startCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false,
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+    }
+
     async function start() {
       try {
-        setCountdown(15)
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: false,
-        })
-        streamRef.current = stream
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          await videoRef.current.play()
-        }
-
-        interval = window.setInterval(() => {
+        setReviewPhase('countdown')
+        setCountdown(5)
+        
+        // Start 5-second countdown first
+        const countdownInterval = window.setInterval(() => {
           setCountdown((c) => {
             const next = c - 1
             if (next <= 0) {
-              window.clearInterval(interval)
-              const ok = Math.random() > 0.4
-              const feedback = ok
-                ? "¡Excelente ejecución! Mantén esa técnica."
-                : "Detecté curvatura en la espalda. Mantén el core firme y baja el peso para priorizar la forma."
-              onResult(ok, feedback)
-              stop()
-              onOpenChange(false)
+              window.clearInterval(countdownInterval)
+              // Start video review phase
+              startVideoReview()
             }
             return next > 0 ? next : 0
           })
-          return
         }, 1000)
+        
+        // Function to start the actual video review
+        async function startVideoReview() {
+          setReviewPhase('video')
+          setCountdown(30) // Increased from 15 to 30 seconds
+          
+          // Check if this exercise should show a demonstration video instead of camera
+          if (exercisesWithVideos.includes(exerciseName)) {
+            // Wait a bit for the video element to be properly mounted
+            await new Promise(resolve => setTimeout(resolve, 200))
+            
+            if (videoRef.current) {
+              // Convert exercise name to video filename (lowercase, replace spaces with hyphens)
+              const videoFilename = exerciseName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+              const videoPath = `/${videoFilename}-video.mp4`
+
+              console.log(`Video path: ${videoPath}`);
+              console.log(`Exercise name: ${exerciseName}`);
+              console.log(`Video element ready:`, videoRef.current);
+              
+              try {
+                console.log(`Attempting to load video: ${videoPath}`)
+                console.log(`Video element:`, videoRef.current)
+                
+                // Test if video file is accessible
+                try {
+                  const response = await fetch(videoPath)
+                  console.log(`Video file accessible: ${response.status} ${response.statusText}`)
+                  if (!response.ok) {
+                    throw new Error(`Video file not accessible: ${response.status}`)
+                  }
+                  
+                  // Check if video has audio track
+                  const arrayBuffer = await response.arrayBuffer()
+                  console.log(`Video file size: ${arrayBuffer.byteLength} bytes`)
+                } catch (fetchError) {
+                  console.error(`Video file fetch error:`, fetchError)
+                  throw fetchError
+                }
+                
+                // Small delay to ensure video element is ready
+                await new Promise(resolve => setTimeout(resolve, 100))
+                
+                // Set video properties
+                videoRef.current.loop = false // Don't loop - let it play once completely
+                videoRef.current.muted = false // Enable audio
+                videoRef.current.playsInline = true
+                videoRef.current.controls = false
+                videoRef.current.volume = 0.7 // Set volume to 70%
+                
+                // Add user interaction to enable audio playback
+                const enableAudio = () => {
+                  if (videoRef.current) {
+                    videoRef.current.muted = false
+                    console.log(`Audio enabled for video: ${videoPath}`)
+                  }
+                }
+                
+                // Enable audio on first user interaction with the video
+                videoRef.current.addEventListener('click', enableAudio, { once: true })
+                videoRef.current.addEventListener('touchstart', enableAudio, { once: true })
+                
+                // Set the video source first
+                videoRef.current.src = videoPath
+                console.log(`Video src set to: ${videoRef.current.src}`)
+                console.log(`Video readyState: ${videoRef.current.readyState}`)
+                console.log(`Video networkState: ${videoRef.current.networkState}`)
+                
+                // Add a timeout in case the video doesn't load
+                const videoTimeout = setTimeout(() => {
+                  console.warn(`Video load timeout for ${videoPath}, falling back to camera`)
+                  if (videoRef.current && !videoRef.current.readyState) {
+                    startCamera()
+                  }
+                }, 5000) // 5 second timeout
+                
+                // Wait for video to load and then play
+                videoRef.current.onloadeddata = () => {
+                  clearTimeout(videoTimeout)
+                  console.log(`Video loaded successfully: ${videoPath}`)
+                  
+                  // Get video duration and set countdown accordingly
+                  const videoDuration = Math.ceil(videoRef.current!.duration)
+                  console.log(`Video duration: ${videoDuration} seconds`)
+                  
+                  // Update countdown to match video duration
+                  setCountdown(videoDuration)
+                  
+                  // Try to play with audio first
+                  videoRef.current!.play().then(() => {
+                    console.log(`Video playing successfully with audio: ${videoPath}`)
+                  }).catch((playError) => {
+                    console.warn(`Video play with audio failed: ${playError}, trying muted...`)
+                    
+                    // If autoplay with audio fails, try muted playback
+                    videoRef.current!.muted = true
+                    videoRef.current!.play().then(() => {
+                      console.log(`Video playing successfully (muted): ${videoPath}`)
+                      // Unmute after successful playback starts
+                      setTimeout(() => {
+                        if (videoRef.current) {
+                          videoRef.current.muted = false
+                          console.log(`Audio enabled for video: ${videoPath}`)
+                        }
+                      }, 100)
+                    }).catch((mutedPlayError) => {
+                      console.warn(`Video play failed even muted: ${mutedPlayError}, falling back to camera`)
+                      startCamera()
+                    })
+                  })
+                }
+                
+                videoRef.current.onerror = (e) => {
+                  clearTimeout(videoTimeout)
+                  console.error(`Video error:`, e)
+                  console.warn(`Video failed to load: ${videoPath}, falling back to camera`)
+                  startCamera()
+                }
+                
+                // Handle video completion
+                videoRef.current.onended = () => {
+                  console.log(`Video finished playing: ${videoPath}`)
+                  // Clear the countdown interval and show feedback
+                  if (interval) {
+                    window.clearInterval(interval)
+                  }
+                  showFeedback()
+                }
+                
+              } catch (videoError) {
+                console.warn(`Video setup failed for ${exerciseName}, falling back to camera:`, videoError)
+                await startCamera()
+              }
+            }
+          } else {
+            // Use real-time camera for exercises without videos
+            await startCamera()
+          }
+
+                    // Start dynamic video review countdown (will be updated with actual video duration)
+          interval = window.setInterval(() => {
+            setCountdown((c) => {
+              const next = c - 1
+              if (next <= 0) {
+                window.clearInterval(interval)
+                // Only show feedback if video hasn't ended naturally
+                if (videoRef.current && !videoRef.current.ended) {
+                  console.log('Countdown reached 0, showing feedback')
+                  showFeedback()
+                }
+              }
+              return next > 0 ? next : 0
+            })
+          }, 1000)
+        }
+        
+        // Function to show feedback
+        function showFeedback() {
+          setReviewPhase('feedback')
+          if (exerciseName === 'Bicep curl') {
+            setFeedbackMessage("There are adjustments for your Bicep curl. I detected curvature in your back. Keep your core firm and lower the weight to prioritize form.")
+          } else {
+            setFeedbackMessage("Excellent execution! Keep that technique.")
+          }
+        }
       } catch (e) {
         console.error("Camera error:", e)
       }
@@ -180,33 +350,125 @@ function ExerciseCheckDialog({
       if (videoRef.current) {
         videoRef.current.pause()
         videoRef.current.srcObject = null
+        videoRef.current.src = ""
       }
       if (interval) window.clearInterval(interval)
     }
 
-    if (open) start()
+    if (open) {
+      // Reset state when opening
+      setReviewPhase('countdown')
+      setCountdown(5)
+      setFeedbackMessage('')
+      start()
+    }
     return () => stop()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[380px] p-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4">
-          <DialogTitle className="text-base">Revisión en tiempo real (15s)</DialogTitle>
+      <DialogContent className="sm:max-w-[340px] p-0 overflow-hidden rounded-2xl border border-gray-200/70 bg-white/95 backdrop-blur shadow-[0_8px_30px_rgba(16,185,129,0.15)] animate-in fade-in-0 zoom-in-95 duration-300">
+        <DialogHeader className="px-3 pt-3 border-b border-gray-100/50">
+          <DialogTitle className="text-sm font-semibold text-gray-800">
+            {reviewPhase === 'countdown' ? 'Get Ready!' : 
+             reviewPhase === 'video' ? (exercisesWithVideos.includes(exerciseName) ? `Video review (${countdown}s)` : `Real-time review (${countdown}s)`) :
+             "Review Complete"}
+          </DialogTitle>
         </DialogHeader>
-        <div className="px-4 pb-4">
-          <div className="text-sm text-gray-600 mb-2">{`Mostrando cámara frontal para evaluar: ${exerciseName}`}</div>
-          <div className="w-full aspect-[9/16] bg-black rounded-xl overflow-hidden mb-3">
-            <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-700">
-              <Timer className="h-4 w-4" />
-              <span className="text-sm">Restante: {countdown}s</span>
-            </div>
-            <div className="text-xs text-gray-500">{"Analizando postura…"}</div>
-          </div>
+        <div className="px-3 pb-3 bg-gradient-to-b from-white to-gray-50/30">
+          {reviewPhase === 'countdown' && (
+            <>
+              <div className="text-xs text-gray-600 mb-2">
+                Get ready to review your {exerciseName} form
+              </div>
+              <div className="w-full aspect-[8/12] bg-gradient-to-br from-emerald-50 to-gray-100 rounded-xl overflow-hidden mb-3 flex items-center justify-center border border-emerald-200/30">
+                <div className="text-center">
+                  <div className="text-7xl font-bold text-emerald-600 mb-4 drop-shadow-sm">{countdown}</div>
+                  <div className="text-base font-medium text-gray-700">Starting in...</div>
+                </div>
+              </div>
+              <div className="text-center text-xs text-gray-500 mb-3 px-1">
+                Prepare your position and equipment
+              </div>
+              <div className="text-center">
+                <Button 
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  className="text-gray-600 hover:text-gray-800 border-gray-300 hover:border-gray-400 rounded-lg px-4 py-2 text-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                >
+                  Cancel Review
+                </Button>
+              </div>
+            </>
+          )}
+          
+          {reviewPhase === 'video' && (
+            <>
+              <div className="text-xs text-gray-600 mb-2">
+                {exercisesWithVideos.includes(exerciseName)
+                  ? `Showing demonstration video with audio for: ${exerciseName}`
+                  : `Showing front camera to evaluate: ${exerciseName}`
+                }
+              </div>
+              <div className="w-full aspect-[3/5] bg-black rounded-xl overflow-hidden mb-3 border border-gray-300/20 shadow-lg">
+                <video 
+                  ref={videoRef} 
+                  className="h-full w-full object-cover" 
+                  playsInline 
+                  preload="auto"
+                  crossOrigin="anonymous"
+                />
+              </div>
+              <div className="space-y-2">
+                {/* Progress bar */}
+                <div className="w-full bg-gray-200/60 rounded-full h-2 overflow-hidden border border-gray-200/30">
+                  <div 
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full transition-all duration-1000 ease-out shadow-sm"
+                    style={{ 
+                      width: videoRef.current && videoRef.current.duration 
+                        ? `${((videoRef.current.duration - countdown) / videoRef.current.duration) * 100}%` 
+                        : '0%' 
+                    }}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Timer className="h-3 w-3" />
+                    <span className="text-xs">Remaining: {countdown}s</span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {exercisesWithVideos.includes(exerciseName) ? "Watching demonstration with audio…" : "Analyzing posture…"}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+          
+          {reviewPhase === 'feedback' && (
+            <>
+              <div className="text-xs text-gray-600 mb-2">
+                Review complete for: {exerciseName}
+              </div>
+              <div className="w-full aspect-[2/3] bg-gradient-to-br from-emerald-50 to-white rounded-xl overflow-hidden mb-3 flex items-center justify-center p-4 border border-emerald-200/30 shadow-sm">
+                <div className="text-center">
+                  <div className="text-2xl font-semibold text-gray-800 mb-4">Feedback</div>
+                  <div className="text-base text-gray-700 leading-relaxed">
+                    {feedbackMessage}
+                  </div>
+                </div>
+              </div>
+              <div className="text-center">
+                <Button 
+                  onClick={() => onOpenChange(false)}
+                  className="bg-emerald-600 hover:bg-emerald-700 rounded-lg px-4 py-2 text-sm shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  Close Review
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -266,21 +528,21 @@ function BottomTalkBar({
             <Input
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              placeholder="Escribe tu mensaje"
+              placeholder="Write your message"
               className="text-base h-14 px-4"
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSend()
               }}
-              aria-label="Escribe tu mensaje para el agente"
+              aria-label="Write your message for the agent"
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Enviar mensaje"
-              onClick={onSend}
-              disabled={!value.trim()}
-              className="rounded-xl h-14 w-14"
-            >
+                          <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Send message"
+                onClick={onSend}
+                disabled={!value.trim()}
+                className="rounded-xl h-14 w-14"
+              >
               <Send className={cn("h-6 w-6", value.trim() ? "text-emerald-600" : "text-gray-300")} />
             </Button>
           </div>
@@ -426,15 +688,15 @@ export default function Page() {
 
   // Generate plan function - now enabled and working directly
   const generatePlan = useCallback((answer: string): Plan => {
-    const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     const day = days[new Date().getDay() % days.length]
     return {
-      title: "Rutina personalizada",
-      note: "Enfocada en técnica y progresión. Ajusta el peso para completar la última repetición con buena forma.",
+      title: "Personalized routine",
+      note: "Focused on technique and progression. Adjust the weight to complete the last repetition with good form.",
       day,
       exercises: [
         {
-          name: "Sentadilla Goblet",
+          name: "Bicep curl",
           sets: 4,
           reps: "8-10",
           restBetweenSetsSec: 90,
@@ -442,7 +704,7 @@ export default function Page() {
           youtube: "https://www.youtube.com/watch?v=6xwZ5H5Hh6Y",
         },
         {
-          name: "Press de Banca con Mancuernas",
+          name: "Dumbbell Bench Press",
           sets: 3,
           reps: "10-12",
           restBetweenSetsSec: 90,
@@ -450,15 +712,15 @@ export default function Page() {
           youtube: "https://www.youtube.com/watch?v=VmB1G1K7v94",
         },
         {
-          name: "Remo con Mancuerna a una Mano",
+          name: "One-Arm Dumbbell Row",
           sets: 3,
-          reps: "10-12 por lado",
+          reps: "10-12 per side",
           restBetweenSetsSec: 75,
           restBetweenRepsSec: 0,
-          youtube: "https://www.youtube.com/watch?v=pYcpY20QaE8",
+              youtube: "https://www.youtube.com/watch?v=pYcpY20QaE8",
         },
         {
-          name: "Plancha",
+          name: "Plank",
           sets: 3,
           reps: "30-45s",
           restBetweenSetsSec: 60,
@@ -515,7 +777,7 @@ export default function Page() {
       
       // Generate plan for any user message
       const plan = generatePlan(trimmed)
-      speak("Perfecto. Aquí tienes tu rutina personalizada para hoy.")
+      speak("Perfect. Here's your personalized routine for today.")
       setTimeout(() => {
         setMessages((prev) => [...prev, { id: `plan-${Date.now()}`, role: "agent", kind: "plan", content: plan }])
         setStage("planDelivered")
@@ -532,8 +794,8 @@ export default function Page() {
   const onCheckResult = useCallback(
     (ok: boolean, feedback?: string) => {
       const msg = ok
-        ? `Tu ${checkingExercise} se ve correcto. ${feedback ?? ""}`
-        : `Hay ajustes para tu ${checkingExercise}. ${feedback ?? ""}`
+        ? `Your ${checkingExercise} looks correct. ${feedback ?? ""}`
+        : `There are adjustments for your ${checkingExercise}. ${feedback ?? ""}`
       setMessages((prev) => [...prev, { id: `check-${Date.now()}`, role: "system", kind: "notice", content: msg }])
     },
     [checkingExercise],
@@ -602,13 +864,13 @@ export default function Page() {
               <div className="mx-auto max-w-sm px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full" style={{ backgroundColor: "#22c55e" }} aria-hidden="true" />
-                  <div className="text-sm font-semibold">{"Coach de Gym"}</div>
+                  <div className="text-sm font-semibold">{"Gym Coach"}</div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setMuted((m) => !m)}
-                  aria-label={muted ? "Activar voz del coach" : "Silenciar voz del coach"}
+                  aria-label={muted ? "Activate coach voice" : "Mute coach voice"}
                 >
                   {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                 </Button>
@@ -653,7 +915,7 @@ export default function Page() {
                 {/* Welcome message */}
                 {stage === "init" && (
                   <ChatBubble role="agent">
-                    Hola, soy tu coach de gimnasio. Escribe cualquier mensaje y te generaré una rutina personalizada para hoy.
+                    Hello, I'm your gym coach. Write any message and I'll generate a personalized routine for you today.
                   </ChatBubble>
                 )}
 
@@ -670,11 +932,18 @@ export default function Page() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100" variant="secondary">
-                                {plan.day}
-                              </Badge>
-                              {plan.note && <span className="text-xs text-gray-500">{plan.note}</span>}
+                            <div className="space-y-2">
+                              <div>
+                                <Badge className="bg-emerald-100 text-emerald-900 hover:bg-emerald-100" variant="secondary">
+                                  {plan.day}
+                                </Badge>
+                              </div>
+                              
+                              {plan.note && (
+                                <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2 border border-gray-100">
+                                  {plan.note}
+                                </div>
+                              )}
                             </div>
                             <div className="space-y-3">
                               {plan.exercises.map((ex, idx) => (
@@ -691,22 +960,22 @@ export default function Page() {
                                       }}
                                     >
                                       <Play className="h-3.5 w-3.5 mr-1" />
-                                      {"Revisión 15s"}
+                                      {"15s Review"}
                                     </Button>
                                   </div>
-                                  <div className="mt-1 text-sm text-gray-700">{`Series: ${ex.sets} • Reps: ${ex.reps}`}</div>
+                                  <div className="mt-1 text-sm text-gray-700">{`Sets: ${ex.sets} • Reps: ${ex.reps}`}</div>
                                   <div className="text-xs text-gray-500">
-                                    {`Descanso: ${ex.restBetweenSetsSec}s entre series`}
-                                    {ex.restBetweenRepsSec ? ` • ${ex.restBetweenRepsSec}s entre reps` : ""}
+                                    {`Rest: ${ex.restBetweenSetsSec}s between sets`}
+                                    {ex.restBetweenRepsSec ? ` • ${ex.restBetweenRepsSec}s between reps` : ""}
                                   </div>
-                                  <a
-                                    href={ex.youtube}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-2 inline-block text-xs text-emerald-700 underline"
-                                  >
-                                    {"Ver técnica en YouTube"}
-                                  </a>
+                                                                      <a
+                                      href={ex.youtube}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-2 inline-block text-xs text-emerald-700 underline"
+                                    >
+                                      {"Watch technique on YouTube"}
+                                    </a>
                                 </div>
                               ))}
                             </div>
