@@ -326,6 +326,10 @@ export default function Page() {
   const [checkOpen, setCheckOpen] = useState<boolean>(false)
   const [checkingExercise, setCheckingExercise] = useState<string>("")
 
+  // Background timer state
+  const [timerRunning, setTimerRunning] = useState<boolean>(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
   const listRef = useRef<HTMLDivElement | null>(null)
   const chatEndRef = useRef<HTMLDivElement | null>(null)
 
@@ -420,11 +424,6 @@ export default function Page() {
     }
   }, [connected, convo, muted])
 
-  // Auto scroll to bottom on changes
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [messages, subtitle])
-
   // Generate plan function - now enabled and working directly
   const generatePlan = useCallback((answer: string): Plan => {
     const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
@@ -469,6 +468,43 @@ export default function Page() {
       ],
     }
   }, [])
+
+  // Background timer function
+  const startBackgroundTimer = useCallback(() => {
+    if (timerRunning) return // Prevent multiple timers
+    
+    setTimerRunning(true)
+    console.log("🎯 Background timer started - 3 seconds countdown...")
+    
+    // Start 3-second timer in background
+    timerRef.current = setTimeout(() => {
+      setTimerRunning(false)
+      console.log("⏰ Timer completed - generating workout plan...")
+      
+      // Generate and show workout plan after timer completes
+      const plan = generatePlan("Timer completed - generating workout plan")
+      
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { id: `plan-${Date.now()}`, role: "agent", kind: "plan", content: plan }])
+        setStage("planDelivered")
+      }, 700)
+      
+    }, 3000) // 3 seconds
+  }, [timerRunning, generatePlan, speak])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+    }
+  }, [])
+
+  // Auto scroll to bottom on changes
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [messages, subtitle])
 
   const sendTextMessage = useCallback(
     (text: string) => {
@@ -531,6 +567,9 @@ export default function Page() {
       await disconnect()
     } else {
       await connect()
+      // Start background timer when mic is activated
+      console.log("🎤 Mic button pressed - starting background timer...")
+      startBackgroundTimer()
     }
   }
 
