@@ -4,8 +4,13 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from .routers import elevenlabs, suggestions, diary
+from .opencv.opencv import procesar_frame, text_to_text_ollama, text_to_speech
+import cv2
+import json
+import random
 import aiohttp
 import asyncio
+import time
 
 ELEVENLABS_WS_URL = "wss://api.elevenlabs.io/v1/stream"
 
@@ -54,3 +59,53 @@ async def voice_chat(websocket: WebSocket):
 
             # Ejecutar envío y recepción en paralelo
             await asyncio.gather(forward_to_eleven(), forward_to_client())
+
+
+@app.websocket("/ws/video")
+async def websocket_video(websocket: WebSocket):
+    await websocket.accept()
+
+    ejercicio = None
+    history = []
+    start_time = time.time()
+
+    try:
+        while True:
+            mensaje = await websocket.receive_json()
+            data = json.loads(mensaje)
+
+            if "ejercicio" in data and ejercicio is None:
+                ejercicio = data["ejercicio"]
+
+            if "frame" in data and data["frame"]:
+                # Procesar frame
+                angulos, simetrias = procesar_frame(data['frame'])
+
+                # Guardar en historial
+                history.append({
+                    "timestamp": time.time(),
+                    "angulos": angulos,
+                    "simetrias": simetrias
+                })
+
+            # mantener 15 segundos
+            if time.time() - start_time >= 15:
+                # llamada a ollama
+                response = text_to_text_ollama(datos=random.sample(history[5:-6],3), ejercicio=ejercicio)
+                # envio a elevenlabs
+                audio = text_to_speech(datos=response)
+                
+                # Enviar audio y texto al cliente
+                await websocket.send_json({
+                    "audio": audio,
+                    "texto": response
+                })
+
+                # Cerrar conexión WebSocket
+                await websocket.close()
+                break
+
+    except Exception as e:
+        print("WebSocket cerrado:", e)
+    finally:
+        cv2.destroyAllWindows()

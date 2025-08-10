@@ -7,9 +7,19 @@ import requests
 import os
 import numpy as np
 import openai
+import base64
+from fastapi import FastAPI, WebSocket
 from openai import OpenAI
 from datetime import datetime
 from elevenlabs import ElevenLabs, play
+
+
+app = FastAPI()
+
+# mediapipe setup
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+pose = mp_pose.Pose()
 
 # ==== CONFIGURACIÓN ELEVENLABS ====
 ELEVEN_API_KEY = "sk_404a33dd38b152b6714728b5e767c964dfdee7b104995f14"  # <- Coloca tu API Key
@@ -326,9 +336,82 @@ def guardar_historial():
         print(f"❌ Error guardando: {e}")
 
 
+def procesar_frame(frame_b64):
+    # Convertir a RGB para MediaPipe
+    img_data = base64.b64decode(frame_b64.split(",")[1])
+    np_arr = np.frombuffer(img_data, np.uint8)
+    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = pose.process(rgb_frame)
+    
+    posiciones = {}
+
+    if results.pose_landmarks:
+        h, w, _ = frame.shape
+        for i, lm in enumerate(results.pose_landmarks.landmark):
+            if lm.visibility < 0.5:
+                continue
+            if mp_pose.PoseLandmark(i).name not in posx:
+                continue
+            posiciones[mp_pose.PoseLandmark(i).name] = {
+                "x": round(lm.x * w, 2),
+                "y": round(lm.y * h, 2),
+                "z": round(lm.z, 4),
+                "visibility": round(lm.visibility, 4),
+                "timestamp": time.time()
+            }
+
+        angulos, simetrias = calcular_angulos_corporales(posiciones)
+        return angulos, simetrias
+    return {}, {}
+
+
+@app.websocket("/ws/video")
+async def websocket_video(websocket: WebSocket):
+    await websocket.accept()
+
+    ejercicio = None
+    history = []
+    start_time = time.time()
+
+    try:
+        while True:
+            mensaje = await websocket.receive_json()
+            data = json.loads(mensaje)
+
+            if "ejercicio" in data and ejercicio is None:
+                ejercicio = data["ejercicio"]
+
+            if "frame" in data and data["frame"]:
+                # Procesar frame
+                angulos, simetrias = procesar_frame(data['frame'])
+
+                # Guardar en historial
+                history.append({
+                    "timestamp": time.time(),
+                    "angulos": angulos,
+                    "simetrias": simetrias
+                })
+
+                
+            # mantener 15 segundos
+            if time.time() - start_time >= 15:
+                # llamada a ollama
+                response = text_to_text_ollama(datos=random.sample(history[5:-6],3), ejercicio=ejercicio)
+                # envio a elevenlabs
+                audio = text_to_speech(datos=response)
+                # regreso audio
+                return audio
+
+    except Exception as e:
+        print("WebSocket cerrado:", e)
+    finally:
+        cv2.destroyAllWindows()
+
 
 def run_opencv_process(ejercicio:str="curl biceps"):
 # ==== CAPTURA DE CÁMARA ====
+    # cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
     cap = cv2.VideoCapture(0)
     start_time = time.time()
     cv2.namedWindow('Control de Entrenamiento', cv2.WINDOW_NORMAL)
@@ -367,6 +450,7 @@ def run_opencv_process(ejercicio:str="curl biceps"):
             # Convertir a RGB para MediaPipe
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(rgb_frame)
+            # results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
             if results.pose_landmarks:
                 mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
@@ -428,8 +512,10 @@ def run_opencv_process(ejercicio:str="curl biceps"):
     cv2.destroyAllWindows()
     cv2.waitKey(1)
 
+    # ollama2
     response = text_to_text_ollama(datos=random.sample(history[5:-6],3), ejercicio=ejercicio)
-    print(response)
+    
+    # elevenlabs
     audio = text_to_speech(datos=response)
     return audio
 
