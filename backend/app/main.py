@@ -13,7 +13,7 @@ load_dotenv()
 
 app = FastAPI(title="AI Sports Coach Backend")
 
-allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in allowed if o.strip()],
