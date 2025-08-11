@@ -5,6 +5,13 @@ A mobile-style web app that demos a **Personalized AI Sports Coach** with real�
 
 > ⚠️ This is a hackathon‑friendly prototype. For production, harden auth, handle errors, and add tests.
 
+## 📹 Demo Video
+
+[![AI Sports Coach Demo](https://img.youtube.com/vi/6UbEVRNs6fs/maxresdefault.jpg)](https://www.youtube.com/watch?v=6UbEVRNs6fs)
+
+*🎯 Click above to see the AI Sports Coach in action - real-time pose analysis, voice coaching, and smart workout suggestions!*
+
+
 ## Features
 - **Real-time voice coaching** using ElevenLabs **WebRTC** connection to an Agent (browser mic → agent → streamed voice back).
 - **Form analysis** (squats demo) with **MediaPipe Pose**; sends conversational feedback to the agent (e.g., “Keep your back straight”).
