@@ -3,36 +3,18 @@ import mediapipe as mp
 import json
 import time
 import random
-import requests
-import os
 import numpy as np
-import openai
 import base64
-from fastapi import FastAPI, WebSocket
-from openai import OpenAI
 from datetime import datetime
-from elevenlabs import ElevenLabs, play
-
-
-app = FastAPI()
+from elevenlabs import play
+from tools import calcular_angulos_corporales
+from elevenlabs_connection import text_to_speech
+from ollama_connection import text_to_text_ollama
 
 # mediapipe setup
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 pose = mp_pose.Pose()
-
-# ==== CONFIGURACIÓN ELEVENLABS ====
-ELEVEN_API_KEY = "sk_404a33dd38b152b6714728b5e767c964dfdee7b104995f14"  # <- Coloca tu API Key
-OPEN_API_KEY = ""
-GROQ_API_KEY = ""
-
-# ==== ELEVENLABS CLIENT ====
-eleven_client = ElevenLabs(api_key=ELEVEN_API_KEY)
-
-# ==== OPENAI CLIENT ====
-openai_client = OpenAI(
-  api_key=OPEN_API_KEY
-)
 
 # ==== CONFIGURACIÓN MEDIAPIPE ====
 mp_pose = mp.solutions.pose
@@ -48,228 +30,6 @@ posx = [
     'RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST','RIGHT_HIP',
     'LEFT_SHOULDER', 'LEFT_ELBOW', 'LEFT_WRIST','LEFT_HIP'
 ]
-
-# ==== AUX ====
-def calcular_angulos_corporales(posiciones):
-    """
-    Calcula los ángulos principales del cuerpo a partir de las posiciones.
-    
-    Args:
-        posiciones: Diccionario con coordenadas de MediaPipe
-        
-    Returns:
-        dict: Ángulos calculados en grados
-    """
-    def angulo_3_puntos(p1, p2, p3):
-        """Calcula ángulo entre 3 puntos (p2 es el vértice)"""
-        try:
-            a = np.array([p1['x'], p1['y']])
-            b = np.array([p2['x'], p2['y']])
-            c = np.array([p3['x'], p3['y']])
-            
-            ba = a - b
-            bc = c - b
-            
-            cos_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
-            cos_angle = np.clip(cos_angle, -1.0, 1.0)
-            angle = np.degrees(np.arccos(cos_angle))
-            
-            return round(angle, 1)
-        except:
-            return None
-    
-    def simetria_posiciones(pos1, pos2):
-        """Calcula simetría entre dos posiciones (0-180 grados)"""
-        try:
-            a = np.array([pos1['x'], pos1['y']])
-            b = np.array([pos2['x'], pos2['y']])
-            delta = a - b
-            angle = np.degrees(np.arctan2(delta[1], delta[0]))
-            angle = abs(angle)
-            if angle > 180:
-                angle = 360 - angle
-            return round(angle, 1)
-        except:
-            return None
-    
-    angulos = {}
-    simetrias = {}
-    
-    # Brazos
-    if all(k in posiciones for k in ['LEFT_SHOULDER', 'LEFT_ELBOW', 'LEFT_WRIST']):
-        angulos['codo_izquierdo'] = angulo_3_puntos(
-            posiciones['LEFT_SHOULDER'], posiciones['LEFT_ELBOW'], posiciones['LEFT_WRIST'])
-    
-    if all(k in posiciones for k in ['RIGHT_SHOULDER', 'RIGHT_ELBOW', 'RIGHT_WRIST']):
-        angulos['codo_derecho'] = angulo_3_puntos(
-            posiciones['RIGHT_SHOULDER'], posiciones['RIGHT_ELBOW'], posiciones['RIGHT_WRIST'])
-        
-    if all(k in posiciones for k in ['RIGHT_HIP','RIGHT_SHOULDER', 'RIGHT_ELBOW']):
-        angulos['hombro_derecho'] = angulo_3_puntos(
-            posiciones['RIGHT_HIP'],posiciones['RIGHT_SHOULDER'], posiciones['RIGHT_ELBOW'])
-
-    if all(k in posiciones for k in ['LEFT_HIP','LEFT_SHOULDER', 'LEFT_ELBOW']):
-        angulos['hombro_izquierdo'] = angulo_3_puntos(
-            posiciones['LEFT_HIP'], posiciones['LEFT_SHOULDER'], posiciones['LEFT_ELBOW'])
-        
-    if all(k in posiciones for k in ['RIGHT_HIP','RIGHT_SHOULDER', 'RIGHT_WRIST']):
-        angulos['brazo_derecho'] = angulo_3_puntos(
-            posiciones['RIGHT_HIP'],posiciones['RIGHT_SHOULDER'], posiciones['RIGHT_WRIST'])
-
-    if all(k in posiciones for k in ['LEFT_HIP','LEFT_SHOULDER', 'LEFT_WRIST']):
-        angulos['brazo_izquierdo'] = angulo_3_puntos(
-            posiciones['LEFT_HIP'], posiciones['LEFT_SHOULDER'], posiciones['LEFT_WRIST'])
-    
-    if all(k in posiciones for k in ['RIGHT_SHOULDER','LEFT_SHOULDER']):
-        simetrias['simetria_hombros'] = simetria_posiciones(
-            posiciones['RIGHT_SHOULDER'], posiciones['LEFT_SHOULDER']
-        )
-
-    if all(k in posiciones for k in ['RIGHT_ELBOW','LEFT_ELBOW']):
-        simetrias['simetria_codos'] = simetria_posiciones(
-            posiciones['RIGHT_ELBOW'], posiciones['LEFT_ELBOW']
-        )
-
-    if all(k in posiciones for k in ['RIGHT_HIP','LEFT_HIP']):
-        simetrias['simetria_cadera'] = simetria_posiciones(
-            posiciones['RIGHT_HIP'], posiciones['LEFT_HIP']
-        )
-
-    if all(k in posiciones for k in ['RIGHT_WRIST','LEFT_WRIST']):
-        simetrias['simetria_munecas'] = simetria_posiciones(
-            posiciones['RIGHT_WRIST'], posiciones['LEFT_WRIST']
-        )
-
-    return angulos, simetrias
-
-
-# ==== GROQ ====
-def text_to_text_groq(datos, ejercicio):
-    """
-    Usa Groq con Llama
-    """
-    try:
-        if not datos:
-            return "There is not enough data to analyze."
-        
-        prompt = f"""
-You are a professional sports trainer. Analyze the following exercise {ejercicio} using next data and give concise, clear feedback in English, maximum 50 words, in a motivating and professional tone. Data:{datos}
-"""
-
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "messages": [
-                {"role": "system", "content": "Eres un entrenador personal conciso y motivador."},
-                {"role": "user", "content": prompt}
-            ],
-            "model": "llama3-8b-8192",  
-            "max_tokens": 400,
-            "temperature": 0.7
-        }
-        
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=15
-        )
-        
-        if response.status_code == 200:
-            resultado = response.json()
-            texto = resultado['choices'][0]['message']['content'].strip()
-            print(f"🚀 Groq: {texto}")
-            return texto
-        else:
-            print(f"❌ Error Groq: {response.status_code}")
-            return f"Continúa con buena técnica en {ejercicio}."
-            
-    except Exception as e:
-        print(f"❌ Error con Groq: {e}")
-        return f"Mantén la forma en {ejercicio}."
-
-# === OLLAMA (local) ====
-def text_to_text_ollama(datos, ejercicio):
-    """
-    Usa Ollama para generar texto de acuerdo al prompt
-    """
-    try:
-        # Crear resumen de datos
-        if not datos:
-            return "No hay datos suficientes para analizar."
-        
-        
-        # Crear prompt específico
-        prompt = f"""
-You are a professional sports trainer. Analyze the following exercise {ejercicio} using next data and give concise, clear feedback in English, maximum 50 words, in a motivating and professional tone. Data:{datos}
-"""
-
-        # Llamada a Ollama (local)
-        response = requests.post(
-            'http://localhost:11434/api/generate', # update if needed
-            json={
-                'model': 'llama2',  
-                'prompt': prompt,
-                'stream': False,
-                'options': {
-                    'temperature': 0.5,
-                    'max_tokens': 500
-                }
-            },
-            timeout=45
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            texto_analisis = result['response'].strip()
-            #print(f"🤖 Ollama: {texto_analisis}")
-            return texto_analisis
-        else:
-            return "Failed to connect to Ollama. Keep your form up."
-            
-    except Exception as e:
-        print(f"❌ Error con Ollama: {e}")
-        return f"Maintain your form in {ejercicio}. Keep it up."
-
-# === OPENAI GPT-4o ====
-def text_to_text_gpt(datos, ejercicio):
-    """
-    Transforma texto a texto usando OpenAI GPT-4o
-    """
-    
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-5-nano",
-            messages=[
-                {"role": "system", "content": "You are a professional sports trainer."},
-                {"role": "user", "content": f"""
-    Analyze the following exercise {ejercicio} using next data and give concise, clear feedback in English, maximum 50 words, in a motivating and professional tone. Data:{datos}
-    """}
-            ]
-        )
-        if response.status_code == 200:
-            return response.choices[0].message.content
-        else:
-            return "Error connecting to OpenAI. Keep your form up."
-    except Exception as e:
-        return f"Keep your form in {ejercicio}. Keep it up."
-
-
-def text_to_speech(datos:str):
-    """
-    Envía las coordenadas del cuerpo en formato JSON como texto al agente.
-    """
-    texto = datos
-    audio = eleven_client.text_to_speech.convert(
-        voice_id="21m00Tcm4TlvDq8ikWAM",
-        model_id="eleven_multilingual_v2",
-        text=texto
-    )
-    return audio
-
 
 # === configuraciones de ventana opcionales ===
 def mostrar_controles(frame):
@@ -366,49 +126,6 @@ def procesar_frame(frame_b64):
     return {}, {}
 
 
-@app.websocket("/ws/video")
-async def websocket_video(websocket: WebSocket):
-    await websocket.accept()
-
-    ejercicio = None
-    history = []
-    start_time = time.time()
-
-    try:
-        while True:
-            mensaje = await websocket.receive_json()
-            data = json.loads(mensaje)
-
-            if "ejercicio" in data and ejercicio is None:
-                ejercicio = data["ejercicio"]
-
-            if "frame" in data and data["frame"]:
-                # Procesar frame
-                angulos, simetrias = procesar_frame(data['frame'])
-
-                # Guardar en historial
-                history.append({
-                    "timestamp": time.time(),
-                    "angulos": angulos,
-                    "simetrias": simetrias
-                })
-
-                
-            # mantener 15 segundos
-            if time.time() - start_time >= 15:
-                # llamada a ollama
-                response = text_to_text_ollama(datos=random.sample(history[5:-6],3), ejercicio=ejercicio)
-                # envio a elevenlabs
-                audio = text_to_speech(datos=response)
-                # regreso audio
-                return audio
-
-    except Exception as e:
-        print("WebSocket cerrado:", e)
-    finally:
-        cv2.destroyAllWindows()
-
-
 def run_opencv_process(ejercicio:str="curl biceps"):
 # ==== CAPTURA DE CÁMARA ====
     # cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -445,7 +162,7 @@ def run_opencv_process(ejercicio:str="curl biceps"):
             guardar_historial()
         """
 
-        # ✅ PROCESAR SOLO SI NO ESTÁ PAUSADO
+        # PROCESAR SOLO SI NO ESTÁ PAUSADO
         if not pausado:
             # Convertir a RGB para MediaPipe
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
